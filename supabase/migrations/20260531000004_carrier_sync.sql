@@ -18,7 +18,6 @@ ALTER TABLE invoices DROP COLUMN IF EXISTS buyer_tax_id;  -- 買方統編
 -- encrypt these / move them to a server-side secret, add per-user (auth.uid())
 -- RLS, and prefer the barcode + verification-code API over storing the portal
 -- password at all.
-ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS phone                  TEXT;        -- 手機號碼
-ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS password               TEXT;        -- 密碼
-ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS card_verification_code TEXT;        -- 條碼驗證碼
-ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS updated_at             TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS phone      TEXT;        -- 手機號碼
+ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS password   TEXT;        -- 密碼
+ALTER TABLE carrier_config ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();

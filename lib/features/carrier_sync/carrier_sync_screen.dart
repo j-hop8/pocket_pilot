@@ -21,8 +21,6 @@ class CarrierSyncScreen extends ConsumerStatefulWidget {
 class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
   final _phone = TextEditingController();
   final _password = TextEditingController();
-  final _carrierId = TextEditingController();
-  final _verification = TextEditingController();
 
   bool _obscure = true;
   bool _saving = false;
@@ -33,15 +31,12 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill the form once the saved config arrives.
     ref.read(carrierConfigProvider.future).then((config) {
       if (!mounted || _prefilled || config == null) return;
       setState(() {
         _prefilled = true;
         _phone.text = config.phone ?? '';
         _password.text = config.password ?? '';
-        _carrierId.text = config.carrierId ?? '';
-        _verification.text = config.cardVerificationCode ?? '';
       });
     });
   }
@@ -50,27 +45,19 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
   void dispose() {
     _phone.dispose();
     _password.dispose();
-    _carrierId.dispose();
-    _verification.dispose();
     super.dispose();
   }
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _saveCredentials() async {
     setState(() => _saving = true);
     try {
       await ref.read(carrierRepositoryProvider).saveCredentials(
-            CarrierConfig(
-              phone: _phone.text,
-              password: _password.text,
-              carrierId: _carrierId.text,
-              cardVerificationCode: _verification.text,
-            ),
+            CarrierConfig(phone: _phone.text, password: _password.text),
           );
       ref.invalidate(carrierConfigProvider);
       if (!mounted) return;
@@ -136,8 +123,6 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
           _CredentialsCard(
             phone: _phone,
             password: _password,
-            carrierId: _carrierId,
-            verification: _verification,
             obscure: _obscure,
             onToggleObscure: () => setState(() => _obscure = !_obscure),
             saving: _saving,
@@ -160,8 +145,6 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
 class _CredentialsCard extends StatelessWidget {
   final TextEditingController phone;
   final TextEditingController password;
-  final TextEditingController carrierId;
-  final TextEditingController verification;
   final bool obscure;
   final VoidCallback onToggleObscure;
   final bool saving;
@@ -170,8 +153,6 @@ class _CredentialsCard extends StatelessWidget {
   const _CredentialsCard({
     required this.phone,
     required this.password,
-    required this.carrierId,
-    required this.verification,
     required this.obscure,
     required this.onToggleObscure,
     required this.saving,
@@ -193,8 +174,8 @@ class _CredentialsCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '財政部電子發票 mobile-barcode carrier login. Saved for future '
-              'auto-sync; Phase 1 imports via CSV below.',
+              '財政部電子發票 portal login. Saved for future auto-sync; '
+              'Phase 1 imports via CSV below.',
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
             const SizedBox(height: 16),
@@ -216,28 +197,9 @@ class _CredentialsCard extends StatelessWidget {
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
-                  icon: Icon(
-                      obscure ? Icons.visibility : Icons.visibility_off),
+                  icon: Icon(obscure ? Icons.visibility : Icons.visibility_off),
                   onPressed: onToggleObscure,
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: carrierId,
-              decoration: const InputDecoration(
-                labelText: 'Mobile barcode 手機條碼 (/XXXXXXX)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.qr_code_2_outlined),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: verification,
-              decoration: const InputDecoration(
-                labelText: 'Verification code 驗證碼',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.pin_outlined),
               ),
             ),
             const SizedBox(height: 12),
@@ -247,8 +209,8 @@ class _CredentialsCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Stored locally in Supabase for this demo. Don\'t use a '
-                    'real password in a shared environment.',
+                    'Stored in Supabase for this demo. Don\'t use a real '
+                    'password in a shared environment.',
                     style: TextStyle(fontSize: 11, color: scheme.outline),
                   ),
                 ),
@@ -368,8 +330,8 @@ class _ResultSummary extends StatelessWidget {
         const SizedBox(height: 8),
         _statRow(context, Icons.add_circle_outline,
             '${result.inserted} new invoices'),
-        _statRow(context, Icons.list_alt_outlined,
-            '${result.items} line items'),
+        _statRow(
+            context, Icons.list_alt_outlined, '${result.items} line items'),
         _statRow(context, Icons.skip_next_outlined,
             '${result.skipped} already present (skipped)'),
         if (range != null)
