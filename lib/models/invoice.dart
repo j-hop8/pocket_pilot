@@ -10,8 +10,6 @@ class Invoice {
   final String? invoiceNumber;
   final DateTime invoiceDate;
   final String? merchantName;
-  final String? sellerTaxId;
-  final String? buyerTaxId;
   final int? salesAmount; // cents
   final int totalAmount; // cents
   final String currency;
@@ -26,8 +24,6 @@ class Invoice {
     this.invoiceNumber,
     required this.invoiceDate,
     this.merchantName,
-    this.sellerTaxId,
-    this.buyerTaxId,
     this.salesAmount,
     required this.totalAmount,
     this.currency = 'TWD',
@@ -49,8 +45,6 @@ class Invoice {
       invoiceNumber: json['invoice_number'] as String?,
       invoiceDate: DateTime.parse(json['invoice_date'] as String),
       merchantName: json['merchant_name'] as String?,
-      sellerTaxId: json['seller_tax_id'] as String?,
-      buyerTaxId: json['buyer_tax_id'] as String?,
       salesAmount: json['sales_amount'] as int?,
       totalAmount: json['total_amount'] as int,
       currency: (json['currency'] as String?) ?? 'TWD',
@@ -69,8 +63,6 @@ class Invoice {
         'invoice_number': invoiceNumber,
         'invoice_date': _dateOnly.format(invoiceDate),
         'merchant_name': merchantName,
-        'seller_tax_id': sellerTaxId,
-        'buyer_tax_id': buyerTaxId,
         'sales_amount': salesAmount,
         'total_amount': totalAmount,
         'currency': currency,
