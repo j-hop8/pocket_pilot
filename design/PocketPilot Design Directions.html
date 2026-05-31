@@ -70,7 +70,7 @@
   .reco{background:var(--persimmon);color:#fff;}
 
   /* ---------- palettes ---------- */
-  .pal-grid{grid-template-columns:repeat(3,1fr);}
+  .pal-grid{grid-template-columns:1fr;}
   .swatches{display:flex;height:96px;border-radius:12px;overflow:hidden;border:1px solid var(--line);}
   .swatches div{flex:1;}
   .pal-name{font-family:var(--sans);font-weight:600;font-size:18px;margin:14px 0 2px;}
@@ -217,12 +217,12 @@
   .footer{margin-top:70px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-soft);letter-spacing:.06em;}
 
   @media(max-width:900px){
-    .pal-grid,.phone-grid,.chart-grid{grid-template-columns:1fr 1fr;}
+    .phone-grid,.chart-grid{grid-template-columns:1fr 1fr;}
     .masc-grid{grid-template-columns:1fr 1fr;}
     .type-card{grid-template-columns:1fr;}
   }
   @media(max-width:620px){
-    .pal-grid,.phone-grid,.chart-grid,.masc-grid,.style-row{grid-template-columns:1fr;}
+    .phone-grid,.chart-grid,.masc-grid,.style-row{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -251,11 +251,11 @@
     <h2><span class="zh">色彩</span> · Palette</h2>
     <span class="ln"></span>
   </div>
-  <p class="section-note">三種暖色方向，都刻意避開 Galas 的原色。我推薦 <b>零錢 Pocket</b>——柿橘為主、墨松為輔、奶油點綴，溫暖又值得信任，跟台灣夜市/日常消費的氣味相符。</p>
+  <p class="section-note">色彩方向確定：<b>零錢 Pocket</b>——柿橘為主、墨松為輔、奶油點綴，溫暖又值得信任，跟台灣夜市/日常消費的氣味相符。</p>
 
   <div class="grid pal-grid">
     <div class="card">
-      <div class="cap"><span>OPTION A</span><span class="tag reco">RECOMMENDED</span></div>
+      <div class="cap"><span>POCKET</span><span class="tag reco">CHOSEN</span></div>
       <div class="swatches">
         <div style="background:oklch(0.972 0.013 84)"></div>
         <div style="background:oklch(0.685 0.158 44)"></div>
@@ -266,34 +266,6 @@
       <div class="pal-name">Pocket</div>
       <div class="pal-zh">零錢 · 暖紙底 / 柿橘 / 墨松 / 奶油 / 墨</div>
       <div class="chips"><span class="chip">paper</span><span class="chip">persimmon</span><span class="chip">pine</span><span class="chip">butter</span><span class="chip">ink</span></div>
-    </div>
-
-    <div class="card">
-      <div class="cap"><span>OPTION B</span><span class="tag">ALT</span></div>
-      <div class="swatches">
-        <div style="background:oklch(0.96 0.008 90)"></div>
-        <div style="background:oklch(0.62 0.10 312)"></div>
-        <div style="background:oklch(0.70 0.10 138)"></div>
-        <div style="background:oklch(0.86 0.06 70)"></div>
-        <div style="background:oklch(0.30 0.03 320)"></div>
-      </div>
-      <div class="pal-name">Taro</div>
-      <div class="pal-zh">芋頭 · 燕麥底 / 芋紫 / 抹茶 / 沙 / 梅墨</div>
-      <div class="chips"><span class="chip">oat</span><span class="chip">taro</span><span class="chip">matcha</span><span class="chip">sand</span><span class="chip">plum</span></div>
-    </div>
-
-    <div class="card">
-      <div class="cap"><span>OPTION C</span><span class="tag">ALT</span></div>
-      <div class="swatches">
-        <div style="background:oklch(0.98 0.004 95)"></div>
-        <div style="background:oklch(0.72 0.17 55)"></div>
-        <div style="background:oklch(0.34 0.05 250)"></div>
-        <div style="background:oklch(0.80 0.07 230)"></div>
-        <div style="background:oklch(0.28 0.02 250)"></div>
-      </div>
-      <div class="pal-name">Ink &amp; Tangerine</div>
-      <div class="pal-zh">墨橘 · 紙白 / 橘 / 海軍藍 / 天空 / 墨藍</div>
-      <div class="chips"><span class="chip">paper</span><span class="chip">tangerine</span><span class="chip">navy</span><span class="chip">sky</span><span class="chip">ink</span></div>
     </div>
   </div>
 

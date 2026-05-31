@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/categories.dart';
 import '../../core/formatters.dart';
 import '../../core/providers.dart';
+import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../models/category.dart';
 import '../../widgets/empty_state.dart';
@@ -15,15 +17,16 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final month = ref.watch(selectedMonthProvider);
+    final s             = ref.watch(stringsProvider);
+    final month         = ref.watch(selectedMonthProvider);
     final invoicesAsync = ref.watch(invoiceListProvider);
-    final catMap = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
+    final catMap        = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
 
     return invoicesAsync.when(
       loading: () => const Center(
         child: CircularProgressIndicator(color: PocketColors.persimmon),
       ),
-      error: (e, _) => Center(child: Text('Failed to load: $e')),
+      error: (e, _) => Center(child: Text(s.failedToLoadError(e))),
       data: (all) {
         final monthInvoices = all
             .where((i) =>
@@ -61,14 +64,15 @@ class DashboardScreen extends ConsumerWidget {
               total: total,
               month: month,
               count: monthInvoices.length,
+              s: s,
             ),
             const SizedBox(height: 16),
             if (monthInvoices.isEmpty)
               SizedBox(
                 height: 240,
                 child: EmptyState(
-                  title: '這個月還沒有消費',
-                  subtitle: 'scan a receipt to get started.',
+                  title: s.noSpendingThisMonth,
+                  subtitle: s.scanToStart,
                   mascot: const ReceiptMascot(size: 72),
                 ),
               )
@@ -76,6 +80,8 @@ class DashboardScreen extends ConsumerWidget {
               _CategoryCard(
                 sorted: sorted,
                 catMap: catMap,
+                byCategoryLabel: s.byCategory,
+                otherLabel: s.categoryOther,
               ),
           ],
         );
@@ -84,7 +90,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _MonthNavigator extends StatelessWidget {
   final DateTime month;
@@ -143,17 +149,19 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _HeroCard extends StatelessWidget {
   final int total;
   final DateTime month;
   final int count;
+  final AppStrings s;
 
   const _HeroCard({
     required this.total,
     required this.month,
     required this.count,
+    required this.s,
   });
 
   @override
@@ -175,7 +183,7 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            formatMonthZh(month),
+            s.formatMonthHero(month),
             style: GoogleFonts.spaceMono(
               fontSize: 10,
               letterSpacing: 0.1,
@@ -212,9 +220,7 @@ class _HeroCard extends StatelessWidget {
               const CoinMascot(size: 28),
               const SizedBox(width: 10),
               Text(
-                count == 0
-                    ? '這個月還沒有消費'
-                    : '$count 筆消費',
+                count == 0 ? s.noSpendingThisMonth : s.spendingCount(count),
                 style: const TextStyle(
                   fontSize: 13,
                   color: PocketColors.inkSoft,
@@ -228,13 +234,20 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _CategoryCard extends StatelessWidget {
   final List<MapEntry<int?, int>> sorted;
   final Map<int, Category> catMap;
+  final String byCategoryLabel;
+  final String otherLabel;
 
-  const _CategoryCard({required this.sorted, required this.catMap});
+  const _CategoryCard({
+    required this.sorted,
+    required this.catMap,
+    required this.byCategoryLabel,
+    required this.otherLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +270,7 @@ class _CategoryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'BY CATEGORY',
+            byCategoryLabel.toUpperCase(),
             style: GoogleFonts.spaceMono(
               fontSize: 10,
               letterSpacing: 0.14,
@@ -271,7 +284,7 @@ class _CategoryCard extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: _CategoryRow(
-                label: cat?.label ?? 'Other',
+                label: cat?.label ?? otherLabel,
                 amount: e.value,
                 color: style.color,
                 fraction: maxVal > 0 ? e.value / maxVal : 0.0,
@@ -314,10 +327,7 @@ class _CategoryRow extends StatelessWidget {
           width: 52,
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: PocketColors.ink,
-            ),
+            style: const TextStyle(fontSize: 13, color: PocketColors.ink),
             overflow: TextOverflow.ellipsis,
           ),
         ),

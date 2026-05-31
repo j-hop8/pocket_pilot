@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/settings_provider.dart';
 import '../../core/theme.dart';
 import '../../widgets/mascots.dart';
 
-// Capture & Scan screen — visual prototype of the three-source capture flow.
-// Actual scanning is not yet wired up; this establishes the UI skeleton.
-
-class CaptureScreen extends StatefulWidget {
+class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
   @override
-  State<CaptureScreen> createState() => _CaptureScreenState();
+  ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-class _CaptureScreenState extends State<CaptureScreen> {
-  int _sourceIndex = 1; // 0 = 載具, 1 = 掃 QR, 2 = 紙本
+class _CaptureScreenState extends ConsumerState<CaptureScreen> {
+  int _sourceIndex = 1; // 0 = carrier, 1 = QR, 2 = paper
 
   Widget get _mascot => switch (_sourceIndex) {
     0 => const CoinMascot(size: 80),
@@ -24,40 +23,48 @@ class _CaptureScreenState extends State<CaptureScreen> {
     _ => const QRMascot(size: 80),
   };
 
-  String get _hint => switch (_sourceIndex) {
-    0 => '請先在財政部綁定手機載具',
-    2 => '把紙本發票對準框框',
-    _ => '把發票上的 QR 對準框框',
-  };
-
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
+
     return Column(
       children: [
         _SourceTabs(
           selected: _sourceIndex,
+          labels: [s.tabCarrier, s.tabQR, s.tabPaper],
           onSelect: (i) => setState(() => _sourceIndex = i),
         ),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-            child: _Viewfinder(mascot: _mascot, hint: _hint),
+            child: _Viewfinder(
+              mascot: _mascot,
+              hint: s.hintFor(_sourceIndex),
+            ),
           ),
         ),
-        _BottomSheet(onManual: () => context.push('/add')),
+        _BottomSheet(
+          pointCameraLabel: s.pointCamera,
+          manualLabel: s.manualEntry,
+          onManual: () => context.push('/add'),
+        ),
       ],
     );
   }
 }
 
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SourceTabs extends StatelessWidget {
   final int selected;
+  final List<String> labels;
   final ValueChanged<int> onSelect;
-  static const _labels = ['載具', '掃 QR', '紙本'];
 
-  const _SourceTabs({required this.selected, required this.onSelect});
+  const _SourceTabs({
+    required this.selected,
+    required this.labels,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +72,7 @@ class _SourceTabs extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(_labels.length, (i) {
+        children: List.generate(labels.length, (i) {
           final active = i == selected;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -73,22 +80,17 @@ class _SourceTabs extends StatelessWidget {
               onTap: () => onSelect(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
                 decoration: BoxDecoration(
-                  color:
-                      active ? PocketColors.ink : PocketColors.paper2,
+                  color: active ? PocketColors.ink : PocketColors.paper2,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _labels[i],
+                  labels[i],
                   style: GoogleFonts.spaceMono(
                     fontSize: 12,
-                    color: active
-                        ? PocketColors.paper
-                        : PocketColors.inkSoft,
-                    fontWeight:
-                        active ? FontWeight.w700 : FontWeight.normal,
+                    color: active ? PocketColors.paper : PocketColors.inkSoft,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -122,14 +124,11 @@ class _Viewfinder extends StatelessWidget {
               ),
             ),
           ),
-          // Corner brackets
           const _CornerBracket(corner: _Corner.tl),
           const _CornerBracket(corner: _Corner.tr),
           const _CornerBracket(corner: _Corner.bl),
           const _CornerBracket(corner: _Corner.br),
-          // Mascot
           Center(child: mascot),
-          // Hint text at bottom
           Positioned(
             bottom: 28,
             left: 0,
@@ -199,29 +198,25 @@ class _BracketPainter extends CustomPainter {
         path
           ..moveTo(w, 0)
           ..lineTo(r, 0)
-          ..arcToPoint(Offset(0, r),
-              radius: const Radius.circular(r), clockwise: true)
+          ..arcToPoint(Offset(0, r), radius: const Radius.circular(r), clockwise: true)
           ..lineTo(0, h);
       case _Corner.tr:
         path
           ..moveTo(0, 0)
           ..lineTo(w - r, 0)
-          ..arcToPoint(Offset(w, r),
-              radius: const Radius.circular(r), clockwise: false)
+          ..arcToPoint(Offset(w, r), radius: const Radius.circular(r), clockwise: false)
           ..lineTo(w, h);
       case _Corner.bl:
         path
           ..moveTo(0, 0)
           ..lineTo(0, h - r)
-          ..arcToPoint(Offset(r, h),
-              radius: const Radius.circular(r), clockwise: false)
+          ..arcToPoint(Offset(r, h), radius: const Radius.circular(r), clockwise: false)
           ..lineTo(w, h);
       case _Corner.br:
         path
           ..moveTo(w, 0)
           ..lineTo(w, h - r)
-          ..arcToPoint(Offset(w - r, h),
-              radius: const Radius.circular(r), clockwise: true)
+          ..arcToPoint(Offset(w - r, h), radius: const Radius.circular(r), clockwise: true)
           ..lineTo(0, h);
     }
     canvas.drawPath(path, paint);
@@ -232,8 +227,15 @@ class _BracketPainter extends CustomPainter {
 }
 
 class _BottomSheet extends StatelessWidget {
+  final String pointCameraLabel;
+  final String manualLabel;
   final VoidCallback onManual;
-  const _BottomSheet({required this.onManual});
+
+  const _BottomSheet({
+    required this.pointCameraLabel,
+    required this.manualLabel,
+    required this.onManual,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +257,7 @@ class _BottomSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'POINT CAMERA AT RECEIPT',
+            pointCameraLabel.toUpperCase(),
             style: GoogleFonts.spaceMono(
               fontSize: 9.5,
               letterSpacing: 0.1,
@@ -263,7 +265,6 @@ class _BottomSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          // Shutter button
           Container(
             width: 64,
             height: 64,
@@ -284,14 +285,13 @@ class _BottomSheet extends StatelessWidget {
           GestureDetector(
             onTap: onManual,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: PocketColors.paper2,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                '✏️  手動輸入',
+                '✏️  $manualLabel',
                 style: GoogleFonts.spaceMono(
                   fontSize: 11,
                   color: PocketColors.inkSoft,

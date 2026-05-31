@@ -1,34 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/settings_provider.dart';
 import '../../core/theme.dart';
 import '../capture/capture_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../history/history_screen.dart';
+import '../settings/settings_screen.dart';
 
-class ShellScaffold extends StatefulWidget {
+class ShellScaffold extends ConsumerStatefulWidget {
   const ShellScaffold({super.key});
 
   @override
-  State<ShellScaffold> createState() => _ShellScaffoldState();
+  ConsumerState<ShellScaffold> createState() => _ShellScaffoldState();
 }
 
-class _ShellScaffoldState extends State<ShellScaffold> {
+class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
   int _index = 0;
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
+
     return Scaffold(
       backgroundColor: PocketColors.board,
       appBar: AppBar(
         toolbarHeight: 62,
-        title: _PocketWordmark(),
+        title: const _PocketWordmark(),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            color: PocketColors.line,
-          ),
+          child: Divider(height: 1, color: PocketColors.line),
         ),
       ),
       body: IndexedStack(
@@ -37,6 +39,7 @@ class _ShellScaffoldState extends State<ShellScaffold> {
           DashboardScreen(),
           CaptureScreen(),
           HistoryScreen(),
+          SettingsScreen(),
         ],
       ),
       bottomNavigationBar: Column(
@@ -46,21 +49,26 @@ class _ShellScaffoldState extends State<ShellScaffold> {
           NavigationBar(
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
-            destinations: const [
+            destinations: [
               NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: '首頁',
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home_rounded),
+                label: s.navHome,
               ),
               NavigationDestination(
-                icon: Icon(Icons.qr_code_scanner_outlined),
-                selectedIcon: Icon(Icons.qr_code_scanner),
-                label: '掃描',
+                icon: const Icon(Icons.qr_code_scanner_outlined),
+                selectedIcon: const Icon(Icons.qr_code_scanner),
+                label: s.navCapture,
               ),
               NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long_rounded),
-                label: '帳本',
+                icon: const Icon(Icons.receipt_long_outlined),
+                selectedIcon: const Icon(Icons.receipt_long_rounded),
+                label: s.navHistory,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings_rounded),
+                label: s.navSettings,
               ),
             ],
           ),
@@ -71,14 +79,10 @@ class _ShellScaffoldState extends State<ShellScaffold> {
 }
 
 class _PocketWordmark extends StatelessWidget {
+  const _PocketWordmark();
+
   @override
   Widget build(BuildContext context) {
-    // Logo from the design guide:
-    //   <div class="logo">pocket<b>Pilot</b></div>
-    //   <svg class="swoosh" viewBox="0 0 230 14">
-    //     <path d="M2 9C40 2 70 12 110 7c45-6 75 4 116-3" stroke="persimmon" …/>
-    //   </svg>
-    // Both "pocket" and "Pilot" are font-weight 700; only colour differs.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,21 +133,21 @@ class _SwooshPainter extends CustomPainter {
     final path = Path()
       ..moveTo(2 * sx, 9 * sy)
       ..cubicTo(
-        40 * sx,  2 * sy,   // cp1
-        70 * sx,  12 * sy,  // cp2
-        110 * sx, 7 * sy,   // end
+        40 * sx,  2 * sy,
+        70 * sx,  12 * sy,
+        110 * sx, 7 * sy,
       )
       ..relativeCubicTo(
-        45 * sx,  -6 * sy,  // cp1
-        75 * sx,  4 * sy,   // cp2
-        116 * sx, -3 * sy,  // end
+        45 * sx,  -6 * sy,
+        75 * sx,  4 * sy,
+        116 * sx, -3 * sy,
       );
 
     canvas.drawPath(
       path,
       Paint()
         ..color = PocketColors.persimmon
-        ..strokeWidth = 3.5 * sy / 1 // maintain stroke weight ratio
+        ..strokeWidth = 3.5 * sy / 1
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
     );

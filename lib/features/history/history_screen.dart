@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/categories.dart';
 import '../../core/formatters.dart';
 import '../../core/providers.dart';
+import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../models/category.dart';
 import '../../models/invoice.dart';
@@ -17,38 +19,36 @@ class HistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s             = ref.watch(stringsProvider);
     final invoicesAsync = ref.watch(invoiceListProvider);
-    final catMap = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
+    final catMap        = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
 
     return invoicesAsync.when(
       loading: () => const Center(
         child: CircularProgressIndicator(color: PocketColors.persimmon),
       ),
-      error: (e, _) => Center(child: Text('Failed to load: $e')),
+      error: (e, _) => Center(child: Text(s.failedToLoadError(e))),
       data: (invoices) {
         if (invoices.isEmpty) {
-          return const EmptyState(
-            title: '還沒有帳目',
-            subtitle: 'scan a receipt to get started.',
-            mascot: ReceiptMascot(size: 72),
+          return EmptyState(
+            title: s.noHistory,
+            subtitle: s.scanToStart,
+            mascot: const ReceiptMascot(size: 72),
           );
         }
 
-        // Group invoices by date, newest first.
         final groups = <String, List<Invoice>>{};
         for (final inv in invoices) {
           final key = formatDate(inv.invoiceDate);
           (groups[key] ??= []).add(inv);
         }
-        final dateKeys = groups.keys.toList()
-          ..sort((a, b) => b.compareTo(a));
+        final dateKeys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
-        // Build a flat list of section headers and invoice rows.
         final items = <_Item>[];
         for (final key in dateKeys) {
           final dayInvoices = groups[key]!;
           final dayTotal =
-              dayInvoices.fold<int>(0, (s, i) => s + i.totalAmount);
+              dayInvoices.fold<int>(0, (sum, i) => sum + i.totalAmount);
           items.add(_Header(date: key, total: dayTotal));
           for (final inv in dayInvoices) {
             items.add(_Row(invoice: inv, catMap: catMap));
@@ -63,10 +63,11 @@ class HistoryScreen extends ConsumerWidget {
             return switch (item) {
               _Header h => _DateHeader(header: h),
               _Row r    => _TransactionTile(
-                  invoice: r.invoice,
-                  catMap:  r.catMap,
-                  onTap:      () => context.push('/invoice/${r.invoice.id}'),
-                  onDelete: () => _confirmDelete(context, ref, r.invoice.id!),
+                  invoice:  r.invoice,
+                  catMap:   r.catMap,
+                  s:        s,
+                  onTap:    () => context.push('/invoice/${r.invoice.id}'),
+                  onDelete: () => _confirmDelete(context, ref, r.invoice.id!, s),
                 ),
             };
           },
@@ -76,20 +77,20 @@ class HistoryScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, String id) async {
+      BuildContext context, WidgetRef ref, String id, AppStrings s) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('刪除這筆帳目？'),
-        content: const Text('刪除後無法復原。'),
+        title: Text(s.deleteTitle),
+        content: Text(s.deleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('刪除'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -101,9 +102,7 @@ class HistoryScreen extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Data model helpers (section header vs row)
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 sealed class _Item {}
 
@@ -119,9 +118,7 @@ class _Row extends _Item {
   _Row({required this.invoice, required this.catMap});
 }
 
-// ---------------------------------------------------------------------------
-// Widgets
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _DateHeader extends StatelessWidget {
   final _Header header;
@@ -158,23 +155,25 @@ class _DateHeader extends StatelessWidget {
 class _TransactionTile extends StatelessWidget {
   final Invoice invoice;
   final Map<int, Category> catMap;
+  final AppStrings s;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const _TransactionTile({
     required this.invoice,
     required this.catMap,
+    required this.s,
     required this.onTap,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cat = invoice.categoryId == null ? null : catMap[invoice.categoryId];
-    final style = styleForKey(cat?.key);
+    final cat      = invoice.categoryId == null ? null : catMap[invoice.categoryId];
+    final style    = styleForKey(cat?.key);
     final merchant = invoice.merchantName?.isNotEmpty == true
         ? invoice.merchantName!
-        : 'Unknown';
+        : s.unknownMerchant;
 
     return GestureDetector(
       onTap: onTap,
@@ -188,7 +187,6 @@ class _TransactionTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Category icon square
             Container(
               width: 40,
               height: 40,
@@ -199,7 +197,6 @@ class _TransactionTile extends StatelessWidget {
               child: Icon(style.icon, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            // Merchant + category
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +213,7 @@ class _TransactionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    cat?.label ?? 'Uncategorized',
+                    cat?.label ?? s.uncategorized,
                     style: GoogleFonts.spaceMono(
                       fontSize: 10,
                       color: PocketColors.inkSoft,
@@ -227,7 +224,6 @@ class _TransactionTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Amount
             Text(
               '−${invoice.totalAmount ~/ 100}',
               style: GoogleFonts.spaceMono(
