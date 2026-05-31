@@ -20,7 +20,16 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
+      appBar: AppBar(
+        title: Text(_titles[_index]),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_sync_outlined),
+            tooltip: 'Carrier sync',
+            onPressed: () => context.push('/carrier'),
+          ),
+        ],
+      ),
       body: IndexedStack(
         index: _index,
         children: const [DashboardScreen(), HistoryScreen()],

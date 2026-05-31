@@ -22,8 +22,27 @@ Hosted Postgres + auto-generated API. The Flutter app talks to it directly via t
 | `migrations/20260530000001_init.sql` | Core schema: categories, invoices, invoice_items, carrier_config + indexes (spec §4) |
 | `migrations/20260530000002_seed_categories.sql` | Seed the 10-category v1 enum |
 | `migrations/20260530000003_rls_demo.sql` | **Demo-only** RLS: anon role gets full access (no auth in Phase 1) |
+| `migrations/20260531000004_carrier_sync.sql` | Feature 1: drop unused invoice tax-id columns; add carrier login credential columns |
 
 After pushing, Supabase Studio should show 4 tables and 10 rows in `categories`.
+Already pushed the earlier migrations to a live DB? Just `supabase db push` again —
+the carrier-sync migration is additive (idempotent `ALTER`s), so no reset is needed.
+
+## Carrier sync (Feature 1)
+
+Invoices are imported in-app from the Ministry of Finance e-invoice carrier CSV
+(消費明細 export): **Carrier sync** screen → *Choose CSV file*. Headers + line
+items are stored with `source='carrier'`, deduped by `invoice_number`, and each
+invoice gets an auto-assigned category. Carrier credentials entered on that
+screen are saved to `carrier_config` for the future auto-sync path.
+
+⚠️ **Credentials security:** under the demo RLS the anon role can read every
+table, so the stored `password` is readable by anyone with the anon key — fine
+for this local single-user demo only. Production should encrypt / use a
+server-side secret, add per-user (`auth.uid()`) RLS, and prefer the official MOF
+**E-Invoice API** (`carrierInvChk` / `carrierInvDetail`, mobile barcode +
+verification code, run from a Supabase **Edge Function** so the AppID secret
+stays server-side) over storing the portal password.
 
 ## App config
 

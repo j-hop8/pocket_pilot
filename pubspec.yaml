@@ -39,6 +39,8 @@ dependencies:
   go_router: ^17.0.0
   fl_chart: ^0.69.2
   intl: ^0.20.2
+  csv: ^6.0.0
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

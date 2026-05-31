@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
+import '../features/carrier_sync/carrier_sync_service.dart';
+import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
 
@@ -10,6 +13,21 @@ final invoiceRepositoryProvider =
 
 final categoryRepositoryProvider =
     Provider<CategoryRepository>((ref) => CategoryRepository());
+
+final carrierRepositoryProvider =
+    Provider<CarrierRepository>((ref) => CarrierRepository());
+
+/// Saved carrier credentials + last-sync state (null until first saved).
+final carrierConfigProvider = FutureProvider<CarrierConfig?>((ref) {
+  return ref.watch(carrierRepositoryProvider).getConfig();
+});
+
+final carrierSyncServiceProvider = Provider<CarrierSyncService>((ref) {
+  return CarrierSyncService(
+    ref.watch(invoiceRepositoryProvider),
+    ref.watch(carrierRepositoryProvider),
+  );
+});
 
 /// All invoices (newest first), with line items joined.
 final invoiceListProvider = FutureProvider<List<Invoice>>((ref) {

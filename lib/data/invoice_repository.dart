@@ -23,6 +23,20 @@ class InvoiceRepository {
     return Invoice.fromJson(row);
   }
 
+  /// Returns the subset of [numbers] that already exist, so carrier sync can
+  /// skip them (invoice_number is UNIQUE — dedup avoids re-importing).
+  Future<Set<String>> existingInvoiceNumbers(List<String> numbers) async {
+    if (numbers.isEmpty) return {};
+    final rows = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .inFilter('invoice_number', numbers);
+    return {
+      for (final r in rows)
+        if (r['invoice_number'] != null) r['invoice_number'] as String,
+    };
+  }
+
   /// Inserts the header then its items in one logical operation, returning the
   /// new invoice id.
   Future<String> insert(Invoice invoice, List<InvoiceItem> items) async {
