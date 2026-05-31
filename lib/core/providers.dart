@@ -1,0 +1,46 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/category_repository.dart';
+import '../data/invoice_repository.dart';
+import '../models/category.dart';
+import '../models/invoice.dart';
+
+final invoiceRepositoryProvider =
+    Provider<InvoiceRepository>((ref) => InvoiceRepository());
+
+final categoryRepositoryProvider =
+    Provider<CategoryRepository>((ref) => CategoryRepository());
+
+/// All invoices (newest first), with line items joined.
+final invoiceListProvider = FutureProvider<List<Invoice>>((ref) {
+  return ref.watch(invoiceRepositoryProvider).list();
+});
+
+final invoiceByIdProvider =
+    FutureProvider.family<Invoice, String>((ref, id) {
+  return ref.watch(invoiceRepositoryProvider).getById(id);
+});
+
+final categoriesProvider = FutureProvider<List<Category>>((ref) {
+  return ref.watch(categoryRepositoryProvider).list();
+});
+
+/// Lookup map id -> Category, for resolving an invoice/item's category_id.
+final categoriesByIdProvider = FutureProvider<Map<int, Category>>((ref) async {
+  final list = await ref.watch(categoriesProvider.future);
+  return {for (final c in list) c.id: c};
+});
+
+/// The month currently shown on the dashboard (first day of month).
+class SelectedMonth extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month);
+  }
+
+  void set(DateTime month) => state = DateTime(month.year, month.month);
+}
+
+final selectedMonthProvider =
+    NotifierProvider<SelectedMonth, DateTime>(SelectedMonth.new);
