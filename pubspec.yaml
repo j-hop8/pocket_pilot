@@ -39,6 +39,7 @@ dependencies:
   go_router: ^17.0.0
   fl_chart: ^0.69.2
   intl: ^0.20.2
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

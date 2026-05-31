@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 
-/// Visual style (color + icon) per category key. The list of categories and
-/// their labels live in the DB; this is purely presentational and shared by
-/// every badge/chart so colors stay consistent across screens.
+import 'theme.dart';
+
 class CategoryStyle {
   final Color color;
   final IconData icon;
   const CategoryStyle(this.color, this.icon);
 }
 
+// Mapped to the Pocket palette: persimmon/pine/butter/blush as primary category colours.
 const Map<String, CategoryStyle> categoryStyles = {
-  'groceries': CategoryStyle(Color(0xFF4CAF50), Icons.shopping_cart),
-  'dining': CategoryStyle(Color(0xFFFF7043), Icons.restaurant),
-  'transport': CategoryStyle(Color(0xFF42A5F5), Icons.directions_bus),
-  'entertainment': CategoryStyle(Color(0xFFAB47BC), Icons.movie),
-  'health': CategoryStyle(Color(0xFFEF5350), Icons.local_hospital),
-  'utilities': CategoryStyle(Color(0xFF26A69A), Icons.bolt),
-  'shopping': CategoryStyle(Color(0xFFEC407A), Icons.shopping_bag),
-  'education': CategoryStyle(Color(0xFF5C6BC0), Icons.school),
-  'travel': CategoryStyle(Color(0xFF29B6F6), Icons.flight),
-  'other': CategoryStyle(Color(0xFF78909C), Icons.category),
+  'dining':        CategoryStyle(PocketColors.persimmon, Icons.restaurant_outlined),
+  'groceries':     CategoryStyle(PocketColors.pine,      Icons.shopping_cart_outlined),
+  'transport':     CategoryStyle(PocketColors.pine,      Icons.directions_bus_outlined),
+  'shopping':      CategoryStyle(PocketColors.butter,    Icons.shopping_bag_outlined),
+  'entertainment': CategoryStyle(PocketColors.blush,     Icons.movie_outlined),
+  'health':        CategoryStyle(Color(0xFFB85C5C),      Icons.local_hospital_outlined),
+  'utilities':     CategoryStyle(PocketColors.pine,      Icons.bolt_outlined),
+  'education':     CategoryStyle(Color(0xFF7C75C6),      Icons.school_outlined),
+  'travel':        CategoryStyle(PocketColors.butter,    Icons.flight_outlined),
+  'other':         CategoryStyle(PocketColors.inkSoft,   Icons.category_outlined),
 };
 
 const CategoryStyle fallbackCategoryStyle =
-    CategoryStyle(Color(0xFF78909C), Icons.category);
+    CategoryStyle(PocketColors.inkSoft, Icons.category_outlined);
 
 CategoryStyle styleForKey(String? key) =>
     categoryStyles[key] ?? fallbackCategoryStyle;

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme.dart';
+import '../capture/capture_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../history/history_screen.dart';
 
-/// Top-level scaffold: bottom nav between Dashboard and History, plus a FAB to
-/// add a manual invoice.
 class ShellScaffold extends StatefulWidget {
   const ShellScaffold({super.key});
 
@@ -15,34 +15,83 @@ class ShellScaffold extends StatefulWidget {
 
 class _ShellScaffoldState extends State<ShellScaffold> {
   int _index = 0;
-  static const _titles = ['Dashboard', 'History'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
+      backgroundColor: PocketColors.board,
+      appBar: AppBar(
+        title: _PocketWordmark(),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            color: PocketColors.line,
+          ),
+        ),
+      ),
       body: IndexedStack(
         index: _index,
-        children: const [DashboardScreen(), HistoryScreen()],
+        children: const [
+          DashboardScreen(),
+          CaptureScreen(),
+          HistoryScreen(),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/add'),
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.pie_chart_outline),
-            selectedIcon: Icon(Icons.pie_chart),
-            label: 'Dashboard',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Divider(height: 1, color: PocketColors.line),
+          NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: '首頁',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.qr_code_scanner_outlined),
+                selectedIcon: Icon(Icons.qr_code_scanner),
+                label: '掃描',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long_rounded),
+                label: '帳本',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'History',
+        ],
+      ),
+    );
+  }
+}
+
+class _PocketWordmark extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: 'pocket',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              color: PocketColors.ink,
+              letterSpacing: -0.5,
+            ),
+          ),
+          TextSpan(
+            text: 'Pilot',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: PocketColors.persimmon,
+              letterSpacing: -0.5,
+            ),
           ),
         ],
       ),
