@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pocketPilot — 設計方向</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ----- PRIMARY palette: 零錢 Pocket (recommended) ----- */
+    --paper:    oklch(0.972 0.013 84);
+    --paper-2:  oklch(0.945 0.018 82);
+    --ink:      oklch(0.27 0.022 64);
+    --ink-soft: oklch(0.45 0.02 64);
+    --persimmon:oklch(0.685 0.158 44);   /* primary */
+    --pine:     oklch(0.55 0.075 184);   /* secondary */
+    --butter:   oklch(0.855 0.105 92);   /* tertiary */
+    --blush:    oklch(0.90 0.04 50);
+    --line:     oklch(0.27 0.022 64 / 0.12);
+
+    --board:    #e7e5e1;
+    --card:     #ffffff;
+
+    --sans: 'Space Grotesk', 'Noto Sans TC', sans-serif;
+    --cjk:  'Noto Sans TC', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--board);
+    color:var(--ink);
+    font-family:var(--cjk);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:56px 32px 120px;}
+
+  /* ---------- type helpers ---------- */
+  .mono{font-family:var(--mono);}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);}
+  h1,h2,h3{margin:0;font-weight:700;}
+  .wordmark{font-family:var(--sans);font-weight:700;letter-spacing:-.02em;}
+  .wordmark .lo{font-weight:500;color:var(--persimmon);}
+
+  /* ---------- masthead ---------- */
+  .mast{margin-bottom:18px;}
+  .mast .brandrow{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;}
+  .mast .logo{font-family:var(--sans);font-weight:700;font-size:60px;letter-spacing:-.03em;line-height:.9;position:relative;}
+  .mast .logo b{color:var(--persimmon);font-weight:700;}
+  .swoosh{display:block;height:14px;width:230px;margin-top:6px;}
+  .mast .sub{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;color:var(--ink-soft);padding-bottom:6px;}
+  .mast .intro{margin-top:22px;max-width:680px;font-size:15px;line-height:1.7;color:var(--ink-soft);}
+  .mast .intro b{color:var(--ink);font-weight:700;}
+
+  .divider{display:flex;align-items:center;gap:14px;margin:54px 0 26px;}
+  .divider .num{font-family:var(--mono);font-size:12px;color:var(--persimmon);font-weight:700;}
+  .divider h2{font-family:var(--sans);font-size:26px;letter-spacing:-.01em;}
+  .divider .zh{font-family:var(--cjk);font-weight:700;}
+  .divider .ln{flex:1;height:1px;background:var(--line);}
+  .section-note{max-width:640px;font-size:13.5px;color:var(--ink-soft);margin:-12px 0 26px;line-height:1.6;}
+
+  /* ---------- generic cards ---------- */
+  .grid{display:grid;gap:22px;}
+  .card{background:var(--card);border-radius:20px;padding:22px;box-shadow:0 1px 0 rgba(0,0,0,.04),0 18px 40px -28px rgba(0,0,0,.35);}
+  .cap{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+  .cap .tag{background:var(--paper-2);color:var(--ink-soft);padding:3px 8px;border-radius:999px;font-size:10px;}
+  .reco{background:var(--persimmon);color:#fff;}
+
+  /* ---------- palettes ---------- */
+  .pal-grid{grid-template-columns:1fr;}
+  .swatches{display:flex;height:96px;border-radius:12px;overflow:hidden;border:1px solid var(--line);}
+  .swatches div{flex:1;}
+  .pal-name{font-family:var(--sans);font-weight:600;font-size:18px;margin:14px 0 2px;}
+  .pal-zh{font-size:12.5px;color:var(--ink-soft);}
+  .chips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;}
+  .chip{font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);}
+
+  /* ---------- type specimen ---------- */
+  .type-card{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;}
+  .spec .big{font-family:var(--sans);font-weight:700;font-size:46px;letter-spacing:-.02em;line-height:1;}
+  .spec .cjkbig{font-family:var(--cjk);font-weight:900;font-size:40px;letter-spacing:.04em;margin-top:10px;}
+  .spec .body{font-family:var(--cjk);font-size:15px;margin-top:14px;color:var(--ink-soft);max-width:380px;}
+  .spec .meta{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:14px;letter-spacing:.04em;}
+  .role{display:flex;flex-direction:column;gap:14px;}
+  .role .r{border-left:3px solid var(--persimmon);padding-left:14px;}
+  .role .r .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);}
+  .role .r .ex{font-size:17px;margin-top:2px;}
+
+  /* ---------- mascots ---------- */
+  .masc-grid{grid-template-columns:repeat(4,1fr);}
+  .masc-card{display:flex;flex-direction:column;align-items:center;gap:16px;padding:30px 18px;background:var(--paper);}
+  .creature{position:relative;}
+  .eyes{position:absolute;display:flex;gap:7px;left:50%;transform:translateX(-50%);}
+  .eye{width:21px;height:21px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -2px 3px rgba(0,0,0,.12);}
+  .eye::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink);}
+  .eye.look::after{transform:translate(2px,2px);}
+  /* coin */
+  .m-coin{width:96px;height:96px;border-radius:50%;background:var(--persimmon);}
+  .m-coin .eyes{top:34px;}
+  /* receipt */
+  .m-receipt{width:78px;height:104px;background:var(--pine);border-radius:10px 10px 0 0;
+    clip-path:polygon(0 0,100% 0,100% 92%,87.5% 100%,75% 92%,62.5% 100%,50% 92%,37.5% 100%,25% 92%,12.5% 100%,0 92%);}
+  .m-receipt .eyes{top:30px;}
+  /* note blob */
+  .m-note{width:104px;height:96px;background:var(--butter);border-radius:62% 38% 55% 45%/55% 52% 48% 45%;}
+  .m-note .eyes{top:38px;}
+  /* qr */
+  .m-qr{width:92px;height:92px;background:var(--ink);border-radius:18px;position:relative;}
+  .m-qr .eyes{top:33px;}
+  .m-qr .eye{box-shadow:none;}
+  .masc-label{text-align:center;}
+  .masc-label .zh{font-weight:700;font-size:15px;}
+  .masc-label .en{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-soft);text-transform:uppercase;}
+
+  .style-row{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px;}
+  .style-demo{background:var(--paper);border-radius:16px;padding:26px;display:flex;align-items:center;justify-content:center;gap:22px;min-height:150px;}
+  .style-demo.flat .creature{filter:none;}
+  .style-demo.depth .creature{filter:drop-shadow(0 10px 0 rgba(0,0,0,.08));}
+  .style-demo.depth .m-coin,.style-demo.depth .m-note{background-image:linear-gradient(160deg,rgba(255,255,255,.35),transparent 55%);}
+
+  /* ---------- phones ---------- */
+  .phone-grid{grid-template-columns:repeat(3,1fr);}
+  .phone-wrap{display:flex;flex-direction:column;gap:14px;}
+  .phone{
+    width:100%;max-width:286px;margin:0 auto;aspect-ratio:286/600;
+    background:var(--paper);border-radius:38px;padding:12px;
+    border:9px solid #1c1a17;box-shadow:0 30px 60px -30px rgba(0,0,0,.5);
+    position:relative;overflow:hidden;
+  }
+  .scr{width:100%;height:100%;border-radius:28px;overflow:hidden;position:relative;background:var(--paper);display:flex;flex-direction:column;}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px 6px;font-family:var(--mono);font-size:10px;color:var(--ink);}
+  .statusbar .dots{display:flex;gap:3px;}
+  .statusbar .dots i{width:4px;height:4px;border-radius:50%;background:var(--ink);display:block;}
+  .phone-label{text-align:center;}
+  .phone-label .t{font-family:var(--sans);font-weight:600;font-size:15px;}
+  .phone-label .d{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.4;}
+
+  .scr-pad{padding:6px 18px 18px;flex:1;overflow:hidden;}
+  .navbar{display:flex;justify-content:space-around;align-items:center;padding:10px 0 14px;border-top:1px solid var(--line);background:var(--paper);}
+  .navbar .ni{width:24px;height:24px;border-radius:7px;background:var(--paper-2);}
+  .navbar .ni.on{background:var(--persimmon);}
+
+  /* mini ui bits */
+  .bignum{font-family:var(--sans);font-weight:700;font-size:38px;letter-spacing:-.02em;line-height:1;}
+  .cur{font-family:var(--mono);font-size:13px;color:var(--ink-soft);}
+  .softlabel{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);}
+  .catrow{display:flex;align-items:center;gap:10px;margin-top:12px;}
+  .catdot{width:22px;height:22px;border-radius:7px;flex:none;}
+  .catbar{flex:1;height:8px;border-radius:999px;background:var(--paper-2);overflow:hidden;}
+  .catbar i{display:block;height:100%;border-radius:999px;}
+  .catamt{font-family:var(--mono);font-size:11px;color:var(--ink-soft);}
+  .catname{font-size:13px;min-width:46px;}
+
+  .txn{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .txn .ic{width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;position:relative;}
+  .txn .ic .eyes{top:9px;}
+  .txn .ic .eye{width:9px;height:9px;box-shadow:none;}
+  .txn .ic .eye::after{width:3.5px;height:3.5px;}
+  .txn .meta .n{font-size:13.5px;font-weight:500;}
+  .txn .meta .s{font-family:var(--mono);font-size:10px;color:var(--ink-soft);}
+  .txn .amt{margin-left:auto;font-family:var(--mono);font-size:13px;font-weight:700;}
+
+  /* donut */
+  .donut{width:130px;height:130px;border-radius:50%;margin:6px auto;position:relative;
+    background:conic-gradient(var(--persimmon) 0 38%,var(--pine) 38% 64%,var(--butter) 64% 84%,var(--blush) 84% 100%);}
+  .donut::after{content:"";position:absolute;inset:30px;border-radius:50%;background:var(--paper);}
+  .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;}
+
+  /* waffle */
+  .waffle{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:6px 0;}
+  .waffle i{aspect-ratio:1;border-radius:3px;background:var(--paper-2);}
+
+  /* stacked chunky bar */
+  .stackbar{height:22px;border-radius:999px;overflow:hidden;display:flex;margin:6px 0;}
+  .stackbar i{height:100%;}
+
+  /* chart options row */
+  .chart-grid{grid-template-columns:repeat(3,1fr);}
+  .chart-card{background:var(--paper);}
+  .legend{display:flex;flex-direction:column;gap:7px;margin-top:14px;}
+  .legend .l{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+  .legend .l .sw{width:12px;height:12px;border-radius:4px;}
+  .legend .l .v{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-soft);}
+
+  /* capture */
+  .viewfinder{flex:1;margin:6px 0 0;border-radius:18px;background:linear-gradient(160deg,#23211d,#33302a);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .vf-corner{position:absolute;width:26px;height:26px;border:3px solid var(--butter);}
+  .vf-corner.tl{top:18px;left:18px;border-right:0;border-bottom:0;border-radius:8px 0 0 0;}
+  .vf-corner.tr{top:18px;right:18px;border-left:0;border-bottom:0;border-radius:0 8px 0 0;}
+  .vf-corner.bl{bottom:18px;left:18px;border-right:0;border-top:0;border-radius:0 0 0 8px;}
+  .vf-corner.br{bottom:18px;right:18px;border-left:0;border-top:0;border-radius:0 0 8px 0;}
+  .source-tabs{display:flex;gap:6px;justify-content:center;padding:14px 0 8px;}
+  .stab{font-family:var(--mono);font-size:10px;padding:7px 11px;border-radius:999px;background:var(--paper-2);color:var(--ink-soft);}
+  .stab.on{background:var(--ink);color:var(--paper);}
+  .shutter{width:62px;height:62px;border-radius:50%;background:var(--persimmon);border:4px solid #fff;box-shadow:0 0 0 2px var(--persimmon);margin:14px auto 4px;}
+  .pill{font-family:var(--mono);font-size:10px;padding:7px 12px;border-radius:999px;background:var(--paper-2);color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px;}
+
+  /* review card */
+  .rcv{background:#fff;border-radius:16px;border:1px solid var(--line);padding:14px;}
+  .rcv .head{display:flex;justify-content:space-between;align-items:center;}
+  .rcv .li{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .rcv .li .nm{color:var(--ink-soft);}
+  .ai-chip{display:inline-flex;align-items:center;gap:6px;background:var(--butter);color:var(--ink);font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:999px;margin-top:10px;}
+  .ai-chip .sp{width:8px;height:8px;border-radius:50%;background:var(--persimmon);}
+  .btn-row{display:flex;gap:8px;margin-top:12px;}
+  .btn{flex:1;text-align:center;padding:11px;border-radius:12px;font-weight:700;font-size:13px;}
+  .btn.pri{background:var(--persimmon);color:#fff;}
+  .btn.sec{background:var(--paper-2);color:var(--ink);}
+
+  .seg{display:flex;gap:6px;background:var(--paper-2);padding:4px;border-radius:12px;}
+  .seg .s{flex:1;text-align:center;font-size:11px;padding:7px;border-radius:9px;font-family:var(--mono);color:var(--ink-soft);}
+  .seg .s.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+
+  .footer{margin-top:70px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-soft);letter-spacing:.06em;}
+
+  @media(max-width:900px){
+    .phone-grid,.chart-grid{grid-template-columns:1fr 1fr;}
+    .masc-grid{grid-template-columns:1fr 1fr;}
+    .type-card{grid-template-columns:1fr;}
+  }
+  @media(max-width:620px){
+    .phone-grid,.chart-grid,.masc-grid,.style-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ MASTHEAD ============ -->
+  <header class="mast">
+    <div class="brandrow">
+      <div>
+        <div class="logo">pocket<b>Pilot</b></div>
+        <svg class="swoosh" viewBox="0 0 230 14" fill="none"><path d="M2 9C40 2 70 12 110 7c45-6 75 4 116-3" stroke="var(--persimmon)" stroke-width="3.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="sub">記帳 · 領航員<br>Festival of receipts, made friendly</div>
+    </div>
+    <p class="intro">
+      風格 DNA 來自 <b>Galas 透明祭</b>：有眼睛的幾何角色、大量留白、粗體中文標題 + 迴圈英文字標 + 小寫等寬註解。
+      我把它改造成一套<b>記帳語言</b>——發票、硬幣、鈔票、QR 都變成有個性的小生物。
+      <b>顏色不沿用紅 / 綠 / 藍</b>，改走暖色「零錢」調。下面是可以挑選、混搭的方向。
+    </p>
+  </header>
+
+  <!-- ============ 01 PALETTE ============ -->
+  <div class="divider">
+    <span class="num">01</span>
+    <h2><span class="zh">色彩</span> · Palette</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">色彩方向確定：<b>零錢 Pocket</b>——柿橘為主、墨松為輔、奶油點綴，溫暖又值得信任，跟台灣夜市/日常消費的氣味相符。</p>
+
+  <div class="grid pal-grid">
+    <div class="card">
+      <div class="cap"><span>POCKET</span><span class="tag reco">CHOSEN</span></div>
+      <div class="swatches">
+        <div style="background:oklch(0.972 0.013 84)"></div>
+        <div style="background:oklch(0.685 0.158 44)"></div>
+        <div style="background:oklch(0.55 0.075 184)"></div>
+        <div style="background:oklch(0.855 0.105 92)"></div>
+        <div style="background:oklch(0.27 0.022 64)"></div>
+      </div>
+      <div class="pal-name">Pocket</div>
+      <div class="pal-zh">零錢 · 暖紙底 / 柿橘 / 墨松 / 奶油 / 墨</div>
+      <div class="chips"><span class="chip">paper</span><span class="chip">persimmon</span><span class="chip">pine</span><span class="chip">butter</span><span class="chip">ink</span></div>
+    </div>
+  </div>
+
+  <!-- ============ 02 TYPE ============ -->
+  <div class="divider">
+    <span class="num">02</span>
+    <h2><span class="zh">字體</span> · Type</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">三支字體分工：<b>Space Grotesk</b> 做英文字標與大數字、<b>Noto Sans TC</b> 做中文內文與粗體標題、<b>Space Mono</b> 做小註解與金額——呼應 Galas 那種等寬小字的編輯感。</p>
+
+  <div class="card type-card">
+    <div class="spec">
+      <div class="big">pocketPilot</div>
+      <div class="cjkbig">這個月花了多少？</div>
+      <div class="body">把發票交給領航員，AI 幫你分類、整理成一本好看的帳。記帳，第一次變得有點期待。</div>
+      <div class="meta">NT$ 12,480 · 5月 · 38 筆 · @carrier @qr @paper</div>
+    </div>
+    <div class="role">
+      <div class="r"><div class="lbl">Display / Wordmark — Space Grotesk</div><div class="ex" style="font-family:var(--sans);font-weight:700;">pocketPilot · NT$ 8,200</div></div>
+      <div class="r"><div class="lbl">中文標題 / 內文 — Noto Sans TC</div><div class="ex">飲食 · 交通 · 購物 · 居家</div></div>
+      <div class="r"><div class="lbl">Meta / 金額 — Space Mono</div><div class="ex mono">2026.05.31 · −$128 · 7-ELEVEN</div></div>
+    </div>
+  </div>
+
+  <!-- ============ 03 MASCOTS ============ -->
+  <div class="divider">
+    <span class="num">03</span>
+    <h2><span class="zh">角色</span> · Mascots</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">Galas 的精髓是「有眼睛的幾何形」。我把記帳元素角色化——它們會出現在空狀態、掃描引導、分類卡片上，給枯燥的記帳一點生命。</p>
+
+  <div class="grid masc-grid">
+    <div class="card masc-card">
+      <div class="creature m-coin"><div class="eyes"><div class="eye"></div><div class="eye look"></div></div></div>
+      <div class="masc-label"><div class="zh">阿錢</div><div class="en">Coin · 餘額</div></div>
+    </div>
+    <div class="card masc-card">
+      <div class="creature m-receipt"><div class="eyes"><div class="eye look"></div><div class="eye"></div></div></div>
+      <div class="masc-label"><div class="zh">發票君</div><div class="en">Receipt · 載具</div></div>
+    </div>
+    <div class="card masc-card">
+      <div class="creature m-note"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div>
+      <div class="masc-label"><div class="zh">鈔鈔</div><div class="en">Note · 收入</div></div>
+    </div>
+    <div class="card masc-card">
+      <div class="creature m-qr"><div class="eyes"><div class="eye look"></div><div class="eye look"></div></div></div>
+      <div class="masc-label"><div class="zh">掃掃</div><div class="en">QR · 掃描</div></div>
+    </div>
+  </div>
+
+  <div class="style-row">
+    <div>
+      <div class="cap" style="padding-left:4px"><span>STYLE 1 — 純平塗 Flat</span></div>
+      <div class="style-demo flat">
+        <div class="creature m-coin" style="width:70px;height:70px"><div class="eyes" style="top:24px"><div class="eye"></div><div class="eye look"></div></div></div>
+        <div class="creature m-receipt" style="width:56px;height:74px"><div class="eyes" style="top:21px"><div class="eye look"></div><div class="eye"></div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="cap" style="padding-left:4px"><span>STYLE 2 — 偏移陰影 Depth</span></div>
+      <div class="style-demo depth">
+        <div class="creature m-coin" style="width:70px;height:70px"><div class="eyes" style="top:24px"><div class="eye"></div><div class="eye look"></div></div></div>
+        <div class="creature m-note" style="width:76px;height:70px"><div class="eyes" style="top:28px"><div class="eye"></div><div class="eye"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 DASHBOARD ============ -->
+  <div class="divider">
+    <span class="num">04</span>
+    <h2><span class="zh">首頁</span> · Dashboard</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">三種首頁佈局，講同一份資料、三種重點：A 大數字 + 分類條、B 每日帳本流、C 甜甜圈聚焦。</p>
+
+  <div class="grid phone-grid">
+    <!-- A -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="scr-pad">
+          <div class="softlabel">五月支出 · MAY</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px"><span class="cur">NT$</span><span class="bignum">12,480</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:var(--ink-soft)">
+            <span class="creature m-coin" style="width:30px;height:30px;display:inline-block;flex:none"><span class="eyes" style="top:10px"><span class="eye" style="width:9px;height:9px;box-shadow:none"></span><span class="eye look" style="width:9px;height:9px;box-shadow:none"></span></span></span>
+            <span>比上月少 8%，做得好！</span>
+          </div>
+          <div class="catrow"><div class="catdot" style="background:var(--persimmon)"></div><span class="catname">飲食</span><div class="catbar"><i style="width:64%;background:var(--persimmon)"></i></div><span class="catamt">5,120</span></div>
+          <div class="catrow"><div class="catdot" style="background:var(--pine)"></div><span class="catname">交通</span><div class="catbar"><i style="width:40%;background:var(--pine)"></i></div><span class="catamt">3,200</span></div>
+          <div class="catrow"><div class="catdot" style="background:var(--butter)"></div><span class="catname">購物</span><div class="catbar"><i style="width:28%;background:var(--butter)"></i></div><span class="catamt">2,240</span></div>
+          <div class="catrow"><div class="catdot" style="background:var(--blush)"></div><span class="catname">居家</span><div class="catbar"><i style="width:20%;background:var(--blush)"></i></div><span class="catamt">1,920</span></div>
+        </div>
+        <div class="navbar"><div class="ni on"></div><div class="ni"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">A · 大數字 + 分類條</div><div class="d">一眼看到總額與省了多少</div></div>
+    </div>
+
+    <!-- B -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="scr-pad">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div class="softlabel">今天 · 5/31</div><div class="cur">−$486</div>
+          </div>
+          <div class="txn"><div class="ic" style="background:var(--persimmon)"><div class="eyes"><div class="eye"></div><div class="eye look"></div></div></div><div class="meta"><div class="n">全家便利商店</div><div class="s">飲食 · 11:20</div></div><div class="amt">−128</div></div>
+          <div class="txn"><div class="ic" style="background:var(--pine)"><div class="eyes"><div class="eye look"></div><div class="eye"></div></div></div><div class="meta"><div class="n">悠遊卡加值</div><div class="s">交通 · 09:05</div></div><div class="amt">−300</div></div>
+          <div class="txn"><div class="ic" style="background:var(--butter)"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="meta"><div class="n">手搖飲</div><div class="s">飲食 · 14:40</div></div><div class="amt">−58</div></div>
+          <div class="softlabel" style="margin-top:14px">昨天 · 5/30</div>
+          <div class="txn"><div class="ic" style="background:var(--blush)"><div class="eyes"><div class="eye look"></div><div class="eye look"></div></div></div><div class="meta"><div class="n">家樂福</div><div class="s">居家 · 19:12</div></div><div class="amt">−842</div></div>
+        </div>
+        <div class="navbar"><div class="ni on"></div><div class="ni"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">B · 每日帳本流</div><div class="d">像日記一樣往下滑，每筆都有角色</div></div>
+    </div>
+
+    <!-- C -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="scr-pad">
+          <div class="softlabel" style="text-align:center">五月分布</div>
+          <div class="donut"><div class="ctr"><span class="cur">NT$</span><span style="font-family:var(--sans);font-weight:700;font-size:22px">12,480</span></div></div>
+          <div class="legend">
+            <div class="l"><span class="sw" style="background:var(--persimmon)"></span>飲食<span class="v">38%</span></div>
+            <div class="l"><span class="sw" style="background:var(--pine)"></span>交通<span class="v">26%</span></div>
+            <div class="l"><span class="sw" style="background:var(--butter)"></span>購物<span class="v">20%</span></div>
+            <div class="l"><span class="sw" style="background:var(--blush)"></span>其他<span class="v">16%</span></div>
+          </div>
+        </div>
+        <div class="navbar"><div class="ni on"></div><div class="ni"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">C · 甜甜圈聚焦</div><div class="d">呼應「圈圈」角色，分布最直覺</div></div>
+    </div>
+  </div>
+
+  <!-- ============ 05 CHARTS ============ -->
+  <div class="divider">
+    <span class="num">05</span>
+    <h2><span class="zh">圖表</span> · Data-viz</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">三種資料視覺風格——都用同一組分類色，差別在「個性」：甜甜圈最精緻、粗條最直接、格子最編輯感（呼應 Galas）。</p>
+
+  <div class="grid chart-grid">
+    <div class="card chart-card">
+      <div class="cap"><span>VIZ 1 — 甜甜圈 Donut</span></div>
+      <div class="donut"><div class="ctr"><span class="softlabel">總計</span><span style="font-family:var(--sans);font-weight:700;font-size:20px">12,480</span></div></div>
+      <div class="legend">
+        <div class="l"><span class="sw" style="background:var(--persimmon)"></span>飲食<span class="v">38%</span></div>
+        <div class="l"><span class="sw" style="background:var(--pine)"></span>交通<span class="v">26%</span></div>
+        <div class="l"><span class="sw" style="background:var(--butter)"></span>購物<span class="v">20%</span></div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="cap"><span>VIZ 2 — 粗條 Chunky bar</span></div>
+      <div class="softlabel" style="margin-bottom:6px">本月構成</div>
+      <div class="stackbar"><i style="width:38%;background:var(--persimmon)"></i><i style="width:26%;background:var(--pine)"></i><i style="width:20%;background:var(--butter)"></i><i style="width:16%;background:var(--blush)"></i></div>
+      <div class="softlabel" style="margin:18px 0 6px">近 6 個月趨勢</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:80px">
+        <div style="flex:1;background:var(--paper-2);height:50%;border-radius:8px 8px 0 0"></div>
+        <div style="flex:1;background:var(--paper-2);height:70%;border-radius:8px 8px 0 0"></div>
+        <div style="flex:1;background:var(--paper-2);height:45%;border-radius:8px 8px 0 0"></div>
+        <div style="flex:1;background:var(--paper-2);height:85%;border-radius:8px 8px 0 0"></div>
+        <div style="flex:1;background:var(--paper-2);height:60%;border-radius:8px 8px 0 0"></div>
+        <div style="flex:1;background:var(--persimmon);height:78%;border-radius:8px 8px 0 0"></div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="cap"><span>VIZ 3 — 格子 Waffle</span></div>
+      <div class="softlabel" style="margin-bottom:6px">100 元 = 1 格</div>
+      <div class="waffle" id="waffle"></div>
+      <div class="legend">
+        <div class="l"><span class="sw" style="background:var(--persimmon)"></span>飲食<span class="v">38</span></div>
+        <div class="l"><span class="sw" style="background:var(--pine)"></span>交通<span class="v">26</span></div>
+        <div class="l"><span class="sw" style="background:var(--butter)"></span>購物<span class="v">20</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 06 CAPTURE ============ -->
+  <div class="divider">
+    <span class="num">06</span>
+    <h2><span class="zh">擷取</span> · Capture &amp; Scan</h2>
+    <span class="ln"></span>
+  </div>
+  <p class="section-note">三來源：<b>載具歸戶</b>、<b>掃 QR</b>、<b>紙本 OCR</b>。三種互動樣式——A 取景框 + 來源分頁、B 大快門 + 來源膠囊、C AI 分類確認卡。</p>
+
+  <div class="grid phone-grid">
+    <!-- A viewfinder -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="source-tabs"><span class="stab">載具</span><span class="stab on">掃 QR</span><span class="stab">紙本</span></div>
+        <div class="scr-pad" style="padding-top:0;display:flex;flex-direction:column">
+          <div class="viewfinder">
+            <div class="vf-corner tl"></div><div class="vf-corner tr"></div><div class="vf-corner bl"></div><div class="vf-corner br"></div>
+            <div class="creature m-qr" style="width:64px;height:64px"><div class="eyes" style="top:22px"><div class="eye look" style="box-shadow:none"></div><div class="eye look" style="box-shadow:none"></div></div></div>
+          </div>
+          <div style="text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-soft)">把發票上的 QR 對準框框</div>
+        </div>
+        <div class="navbar"><div class="ni"></div><div class="ni on"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">A · 取景框 + 分頁</div><div class="d">三來源一個畫面切換</div></div>
+    </div>
+
+    <!-- B shutter sheet -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="scr-pad" style="display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center">
+            <div class="creature m-receipt" style="width:90px;height:120px"><div class="eyes" style="top:34px"><div class="eye look"></div><div class="eye"></div></div></div>
+          </div>
+          <div style="background:#fff;border-radius:20px 20px 14px 14px;padding:16px;box-shadow:0 -8px 30px -20px rgba(0,0,0,.4)">
+            <div class="softlabel" style="text-align:center;margin-bottom:10px">選擇來源後拍照</div>
+            <div class="shutter"></div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+              <span class="pill">📇 載具</span><span class="pill" style="background:var(--ink);color:var(--paper)">📷 紙本</span><span class="pill">▦ QR</span>
+            </div>
+          </div>
+        </div>
+        <div class="navbar"><div class="ni"></div><div class="ni on"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">B · 大快門 + 膠囊</div><div class="d">相機優先，來源用膠囊切</div></div>
+    </div>
+
+    <!-- C AI review -->
+    <div class="phone-wrap">
+      <div class="phone"><div class="scr">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+        <div class="scr-pad">
+          <div class="softlabel">AI 已讀取 · 請確認</div>
+          <div class="rcv" style="margin-top:8px">
+            <div class="head"><div style="font-weight:700;font-size:14px">全家便利商店</div><div class="cur">−$128</div></div>
+            <div style="margin-top:8px">
+              <div class="li"><span class="nm">茶葉蛋 ×2</span><span>26</span></div>
+              <div class="li"><span class="nm">美式咖啡</span><span>45</span></div>
+              <div class="li"><span class="nm">御飯糰</span><span>57</span></div>
+            </div>
+            <div class="ai-chip"><span class="sp"></span>AI 建議分類：飲食</div>
+            <div class="btn-row"><div class="btn pri">確認</div><div class="btn sec">改分類</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11.5px;color:var(--ink-soft)">
+            <span class="creature m-coin" style="width:26px;height:26px;display:inline-block;flex:none"><span class="eyes" style="top:9px"><span class="eye" style="width:8px;height:8px;box-shadow:none"></span><span class="eye look" style="width:8px;height:8px;box-shadow:none"></span></span></span>
+            <span>對了就一鍵存檔，不用打字</span>
+          </div>
+        </div>
+        <div class="navbar"><div class="ni"></div><div class="ni on"></div><div class="ni"></div><div class="ni"></div></div>
+      </div></div>
+      <div class="phone-label"><div class="t">C · AI 分類確認卡</div><div class="d">擷取後最關鍵的一步</div></div>
+    </div>
+  </div>
+
+  <div class="footer">pocketPilot · 設計方向探索 v0.1 — 挑出喜歡的配色 / 佈局 / 角色風格，我再把贏家做成可點擊的原型</div>
+</div>
+
+<script>
+  // build waffle: 10x10, colored by category share
+  (function(){
+    const w = document.getElementById('waffle');
+    if(!w) return;
+    const cols = ['var(--persimmon)','var(--pine)','var(--butter)'];
+    const counts = [38,26,20]; // rest empty
+    let seq = [];
+    cols.forEach((c,i)=>{ for(let k=0;k<counts[i];k++) seq.push(c); });
+    for(let i=0;i<100;i++){
+      const el = document.createElement('i');
+      if(seq[i]) el.style.background = seq[i];
+      w.appendChild(el);
+    }
+  })();
+</script>
+</body>
+</html>

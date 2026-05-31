@@ -1,25 +1,32 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/categories.dart';
 import '../../core/formatters.dart';
 import '../../core/providers.dart';
+import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
+import '../../core/theme.dart';
 import '../../models/category.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/mascots.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final month = ref.watch(selectedMonthProvider);
+    final s             = ref.watch(stringsProvider);
+    final month         = ref.watch(selectedMonthProvider);
     final invoicesAsync = ref.watch(invoiceListProvider);
-    final catMap = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
+    final catMap        = ref.watch(categoriesByIdProvider).asData?.value ?? const {};
 
     return invoicesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Failed to load: $e')),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: PocketColors.persimmon),
+      ),
+      error: (e, _) => Center(child: Text(s.failedToLoadError(e))),
       data: (all) {
         final monthInvoices = all
             .where((i) =>
@@ -37,11 +44,13 @@ class DashboardScreen extends ConsumerWidget {
             ifAbsent: () => inv.totalAmount,
           );
         }
+        final sorted = byCategory.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
           children: [
-            _MonthHeader(
+            _MonthNavigator(
               month: month,
               onPrev: () => ref
                   .read(selectedMonthProvider.notifier)
@@ -50,20 +59,30 @@ class DashboardScreen extends ConsumerWidget {
                   .read(selectedMonthProvider.notifier)
                   .set(DateTime(month.year, month.month + 1)),
             ),
-            const SizedBox(height: 16),
-            _TotalCard(total: total),
+            const SizedBox(height: 20),
+            _HeroCard(
+              total: total,
+              month: month,
+              count: monthInvoices.length,
+              s: s,
+            ),
             const SizedBox(height: 16),
             if (monthInvoices.isEmpty)
-              const SizedBox(
-                height: 280,
+              SizedBox(
+                height: 240,
                 child: EmptyState(
-                  icon: Icons.savings_outlined,
-                  title: 'No spending this month',
-                  subtitle: 'Tap Add to record an invoice.',
+                  title: s.noSpendingThisMonth,
+                  subtitle: s.scanToStart,
+                  mascot: const ReceiptMascot(size: 72),
                 ),
               )
             else
-              _BreakdownCard(byCategory: byCategory, catMap: catMap),
+              _CategoryCard(
+                sorted: sorted,
+                catMap: catMap,
+                byCategoryLabel: s.byCategory,
+                otherLabel: s.categoryOther,
+              ),
           ],
         );
       },
@@ -71,12 +90,14 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _MonthHeader extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MonthNavigator extends StatelessWidget {
   final DateTime month;
   final VoidCallback onPrev;
   final VoidCallback onNext;
 
-  const _MonthHeader({
+  const _MonthNavigator({
     required this.month,
     required this.onPrev,
     required this.onNext,
@@ -85,133 +106,256 @@ class _MonthHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
+        _NavButton(icon: Icons.chevron_left, onTap: onPrev),
+        const SizedBox(width: 12),
         Text(
           formatMonth(month),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: PocketColors.ink,
+            letterSpacing: -0.2,
+          ),
         ),
-        IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
+        const SizedBox(width: 12),
+        _NavButton(icon: Icons.chevron_right, onTap: onNext),
+        const Spacer(),
       ],
     );
   }
 }
 
-class _TotalCard extends StatelessWidget {
-  final int total;
-  const _TotalCard({required this.total});
+class _NavButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _NavButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [scheme.primary, scheme.primaryContainer],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: PocketColors.paper2,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Total spend',
-              style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              formatTwd(total),
-              style: TextStyle(
-                color: scheme.onPrimary,
-                fontSize: 34,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 20, color: PocketColors.inkSoft),
       ),
     );
   }
 }
 
-class _BreakdownCard extends StatelessWidget {
-  final Map<int?, int> byCategory;
-  final Map<int, Category> catMap;
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const _BreakdownCard({required this.byCategory, required this.catMap});
+class _HeroCard extends StatelessWidget {
+  final int total;
+  final DateTime month;
+  final int count;
+  final AppStrings s;
+
+  const _HeroCard({
+    required this.total,
+    required this.month,
+    required this.count,
+    required this.s,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final entries = byCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final sections = entries.map((e) {
-      final cat = e.key == null ? null : catMap[e.key];
-      final style = styleForKey(cat?.key);
-      return PieChartSectionData(
-        value: e.value.toDouble(),
-        color: style.color,
-        title: '',
-        radius: 48,
-      );
-    }).toList();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'By category',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: PocketColors.card,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            s.formatMonthHero(month),
+            style: GoogleFonts.spaceMono(
+              fontSize: 10,
+              letterSpacing: 0.1,
+              color: PocketColors.inkSoft,
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 180,
-              child: PieChart(
-                PieChartData(
-                  sections: sections,
-                  centerSpaceRadius: 40,
-                  sectionsSpace: 2,
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                'NT\$',
+                style: GoogleFonts.spaceMono(
+                  fontSize: 13,
+                  color: PocketColors.inkSoft,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ...entries.map((e) {
-              final cat = e.key == null ? null : catMap[e.key];
-              final style = styleForKey(cat?.key);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: style.color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(cat?.label ?? 'Uncategorized')),
-                    Text(
-                      formatTwd(e.value),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
+              const SizedBox(width: 6),
+              Text(
+                (total ~/ 100).toString(),
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w700,
+                  color: PocketColors.ink,
+                  letterSpacing: -1.5,
                 ),
-              );
-            }),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const CoinMascot(size: 28),
+              const SizedBox(width: 10),
+              Text(
+                count == 0 ? s.noSpendingThisMonth : s.spendingCount(count),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: PocketColors.inkSoft,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CategoryCard extends StatelessWidget {
+  final List<MapEntry<int?, int>> sorted;
+  final Map<int, Category> catMap;
+  final String byCategoryLabel;
+  final String otherLabel;
+
+  const _CategoryCard({
+    required this.sorted,
+    required this.catMap,
+    required this.byCategoryLabel,
+    required this.otherLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxVal = sorted.isEmpty ? 1 : sorted.first.value;
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: PocketColors.card,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            byCategoryLabel.toUpperCase(),
+            style: GoogleFonts.spaceMono(
+              fontSize: 10,
+              letterSpacing: 0.14,
+              color: PocketColors.inkSoft,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...sorted.map((e) {
+            final cat = e.key == null ? null : catMap[e.key];
+            final style = styleForKey(cat?.key);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: _CategoryRow(
+                label: cat?.label ?? otherLabel,
+                amount: e.value,
+                color: style.color,
+                fraction: maxVal > 0 ? e.value / maxVal : 0.0,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  final String label;
+  final int amount;
+  final Color color;
+  final double fraction;
+
+  const _CategoryRow({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.fraction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(7),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 52,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: PocketColors.ink),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: fraction,
+              backgroundColor: PocketColors.paper2,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 8,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 52,
+          child: Text(
+            (amount ~/ 100).toString(),
+            textAlign: TextAlign.right,
+            style: GoogleFonts.spaceMono(
+              fontSize: 11,
+              color: PocketColors.inkSoft,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

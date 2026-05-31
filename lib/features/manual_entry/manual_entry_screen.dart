@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/formatters.dart';
 import '../../core/providers.dart';
+import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
 import '../../models/category.dart';
 import '../../models/invoice.dart';
 import '../../models/invoice_item.dart';
@@ -16,8 +18,8 @@ class ManualEntryScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemDraft {
-  final nameController = TextEditingController();
-  final qtyController = TextEditingController(text: '1');
+  final nameController  = TextEditingController();
+  final qtyController   = TextEditingController(text: '1');
   final priceController = TextEditingController();
   int? categoryId;
 
@@ -29,7 +31,7 @@ class _ItemDraft {
     priceController.dispose();
   }
 
-  num get qty => num.tryParse(qtyController.text.trim()) ?? 1;
+  num get qty   => num.tryParse(qtyController.text.trim()) ?? 1;
   num get price => num.tryParse(priceController.text.trim()) ?? 0;
   bool get isFilled => nameController.text.trim().isNotEmpty;
   int get amountCents => (qty * dollarsToCents(price)).round();
@@ -71,11 +73,11 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _save(int? defaultCategoryId) async {
+  Future<void> _save(int? defaultCategoryId, AppStrings s) async {
     final filled = _items.where((i) => i.isFilled).toList();
     if (filled.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one item with a name.')),
+        SnackBar(content: Text(s.addAtLeastOneItem)),
       );
       return;
     }
@@ -112,20 +114,21 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
+        SnackBar(content: Text(s.saveFailedError(e))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s              = ref.watch(stringsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add invoice')),
+      appBar: AppBar(title: Text(s.addInvoice)),
       body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load categories: $e')),
+        error:   (e, _) => Center(child: Text(s.failedToLoadError(e))),
         data: (categories) {
           final defaultCat = _defaultCategoryId(categories);
           return Column(
@@ -137,7 +140,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.event),
-                        title: const Text('Date'),
+                        title: Text(s.dateLabel),
                         subtitle: Text(formatDate(_date)),
                         trailing: const Icon(Icons.edit),
                         onTap: _pickDate,
@@ -146,17 +149,17 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _merchantController,
-                      decoration: const InputDecoration(
-                        labelText: 'Merchant',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: s.merchantLabel,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       value: _invoiceCategoryId ?? defaultCat,
-                      decoration: const InputDecoration(
-                        labelText: 'Invoice category',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: s.invoiceCategory,
+                        border: const OutlineInputBorder(),
                       ),
                       items: categories
                           .map((c) => DropdownMenuItem(
@@ -171,14 +174,18 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Items',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text(
+                          s.itemsLabel,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         TextButton.icon(
-                          onPressed: () => setState(() =>
-                              _items.add(_ItemDraft(categoryId: defaultCat))),
+                          onPressed: () => setState(
+                              () => _items.add(_ItemDraft(categoryId: defaultCat))),
                           icon: const Icon(Icons.add),
-                          label: const Text('Add item'),
+                          label: Text(s.addItem),
                         ),
                       ],
                     ),
@@ -189,6 +196,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                         draft: _items[i],
                         categories: categories,
                         defaultCategoryId: _invoiceCategoryId ?? defaultCat,
+                        s: s,
                         onChanged: () => setState(() {}),
                         onRemove: () => setState(() {
                           _items.removeAt(i).dispose();
@@ -201,7 +209,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
               _SaveBar(
                 total: _totalCents,
                 saving: _saving,
-                onSave: () => _save(defaultCat),
+                totalLabel: s.totalLabel,
+                saveLabel: s.save,
+                onSave: () => _save(defaultCat, s),
               ),
             ],
           );
@@ -215,6 +225,7 @@ class _ItemCard extends StatelessWidget {
   final _ItemDraft draft;
   final List<Category> categories;
   final int? defaultCategoryId;
+  final AppStrings s;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -223,6 +234,7 @@ class _ItemCard extends StatelessWidget {
     required this.draft,
     required this.categories,
     required this.defaultCategoryId,
+    required this.s,
     required this.onChanged,
     required this.onRemove,
   });
@@ -239,10 +251,10 @@ class _ItemCard extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: draft.nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Item name',
+                    decoration: InputDecoration(
+                      labelText: s.itemName,
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => onChanged(),
                   ),
@@ -250,7 +262,7 @@ class _ItemCard extends StatelessWidget {
                 IconButton(
                   onPressed: onRemove,
                   icon: const Icon(Icons.close),
-                  tooltip: 'Remove',
+                  tooltip: s.remove,
                 ),
               ],
             ),
@@ -262,10 +274,10 @@ class _ItemCard extends StatelessWidget {
                     controller: draft.qtyController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Qty',
+                    decoration: InputDecoration(
+                      labelText: s.qtyLabel,
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => onChanged(),
                   ),
@@ -276,10 +288,10 @@ class _ItemCard extends StatelessWidget {
                     controller: draft.priceController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Unit price (NT\$)',
+                    decoration: InputDecoration(
+                      labelText: s.unitPrice,
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => onChanged(),
                   ),
@@ -290,10 +302,10 @@ class _ItemCard extends StatelessWidget {
             DropdownButtonFormField<int>(
               value: draft.categoryId ?? defaultCategoryId,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Item category',
+              decoration: InputDecoration(
+                labelText: s.itemCategory,
                 isDense: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               items: categories
                   .map((c) =>
@@ -314,11 +326,15 @@ class _ItemCard extends StatelessWidget {
 class _SaveBar extends StatelessWidget {
   final int total;
   final bool saving;
+  final String totalLabel;
+  final String saveLabel;
   final VoidCallback onSave;
 
   const _SaveBar({
     required this.total,
     required this.saving,
+    required this.totalLabel,
+    required this.saveLabel,
     required this.onSave,
   });
 
@@ -337,7 +353,8 @@ class _SaveBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Total', style: TextStyle(fontSize: 12)),
+                    Text(totalLabel,
+                        style: const TextStyle(fontSize: 12)),
                     Text(
                       formatTwd(total),
                       style: const TextStyle(
@@ -357,7 +374,7 @@ class _SaveBar extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check),
-                label: const Text('Save'),
+                label: Text(saveLabel),
               ),
             ],
           ),
