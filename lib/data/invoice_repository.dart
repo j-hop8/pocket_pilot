@@ -54,6 +54,43 @@ class InvoiceRepository {
     return id;
   }
 
+  /// Changes the invoice's category and cascades it to every line item, so the
+  /// whole receipt is recategorized in one tap. Individual items can then be
+  /// fine-tuned via [updateItemCategory]. Category is the one field editable on
+  /// official (synced) invoices, which must otherwise mirror the government
+  /// record.
+  Future<void> updateCategory(String id, int? categoryId) async {
+    await supabase
+        .from('invoices')
+        .update({'category_id': categoryId}).eq('id', id);
+    await supabase
+        .from('invoice_items')
+        .update({'category_id': categoryId}).eq('invoice_id', id);
+  }
+
+  /// Overrides a single line item's category — for receipts from one store that
+  /// mix categories (e.g. groceries + a household item). Leaves the invoice
+  /// header and sibling items untouched.
+  Future<void> updateItemCategory(String itemId, int? categoryId) async {
+    await supabase
+        .from('invoice_items')
+        .update({'category_id': categoryId}).eq('id', itemId);
+  }
+
+  /// Full update of a user-originated invoice: rewrites the header, then
+  /// replaces all line items (delete-all + re-insert keeps it simple and avoids
+  /// per-row diffing). The id is taken from [invoice].
+  Future<void> update(Invoice invoice, List<InvoiceItem> items) async {
+    final id = invoice.id!;
+    await supabase.from('invoices').update(invoice.toUpdateJson()).eq('id', id);
+    await supabase.from('invoice_items').delete().eq('invoice_id', id);
+    if (items.isNotEmpty) {
+      await supabase
+          .from('invoice_items')
+          .insert(items.map((i) => i.toInsertJson(id)).toList());
+    }
+  }
+
   Future<void> delete(String id) async {
     // invoice_items rows cascade via the FK ON DELETE CASCADE.
     await supabase.from('invoices').delete().eq('id', id);

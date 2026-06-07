@@ -64,9 +64,9 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
                 label: s.navHome,
               ),
               NavigationDestination(
-                icon: const Icon(Icons.qr_code_scanner_outlined),
-                selectedIcon: const Icon(Icons.qr_code_scanner),
-                label: s.navCapture,
+                icon: const Icon(Icons.add_circle_outline),
+                selectedIcon: const Icon(Icons.add_circle_rounded),
+                label: s.navAdd,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.receipt_long_outlined),

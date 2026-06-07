@@ -15,10 +15,9 @@ class CaptureScreen extends ConsumerStatefulWidget {
 }
 
 class _CaptureScreenState extends ConsumerState<CaptureScreen> {
-  int _sourceIndex = 1; // 0 = carrier, 1 = QR, 2 = paper
+  int _sourceIndex = 1; // 0 = manual, 1 = e-invoice QR, 2 = receipt
 
   Widget get _mascot => switch (_sourceIndex) {
-    0 => const CoinMascot(size: 80),
     2 => const ReceiptMascot(size: 80),
     _ => const QRMascot(size: 80),
   };
@@ -26,29 +25,128 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
+    final isManual = _sourceIndex == 0;
 
     return Column(
       children: [
         _SourceTabs(
           selected: _sourceIndex,
-          labels: [s.tabCarrier, s.tabQR, s.tabPaper],
+          labels: [s.tabManual, s.tabEInvoice, s.tabReceipt],
           onSelect: (i) => setState(() => _sourceIndex = i),
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-            child: _Viewfinder(
-              mascot: _mascot,
-              hint: s.hintFor(_sourceIndex),
+        if (isManual)
+          Expanded(
+            child: _ManualPanel(
+              title: s.manualPanelTitle,
+              hint: s.manualPanelHint,
+              addLabel: s.addInvoice,
+              onAdd: () => context.push('/add'),
+            ),
+          )
+        else ...[
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: _Viewfinder(
+                mascot: _mascot,
+                hint: s.hintFor(_sourceIndex),
+              ),
             ),
           ),
-        ),
-        _BottomSheet(
-          pointCameraLabel: s.pointCamera,
-          manualLabel: s.manualEntry,
-          onManual: () => context.push('/add'),
-        ),
+          const _BottomSheet(),
+        ],
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ManualPanel extends StatelessWidget {
+  final String title;
+  final String hint;
+  final String addLabel;
+  final VoidCallback onAdd;
+
+  const _ManualPanel({
+    required this.title,
+    required this.hint,
+    required this.addLabel,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+          decoration: BoxDecoration(
+            color: PocketColors.card,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const NoteMascot(size: 88),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: PocketColors.ink,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.spaceMono(
+                  fontSize: 12,
+                  color: PocketColors.inkSoft,
+                ),
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: onAdd,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: PocketColors.persimmon,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: PocketColors.persimmon.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '✏️  $addLabel',
+                    style: GoogleFonts.spaceMono(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: PocketColors.paper,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -227,15 +325,7 @@ class _BracketPainter extends CustomPainter {
 }
 
 class _BottomSheet extends StatelessWidget {
-  final String pointCameraLabel;
-  final String manualLabel;
-  final VoidCallback onManual;
-
-  const _BottomSheet({
-    required this.pointCameraLabel,
-    required this.manualLabel,
-    required this.onManual,
-  });
+  const _BottomSheet();
 
   @override
   Widget build(BuildContext context) {
@@ -253,53 +343,23 @@ class _BottomSheet extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            pointCameraLabel.toUpperCase(),
-            style: GoogleFonts.spaceMono(
-              fontSize: 9.5,
-              letterSpacing: 0.1,
-              color: PocketColors.inkSoft,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: PocketColors.persimmon,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: PocketColors.persimmon.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          GestureDetector(
-            onTap: onManual,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: PocketColors.paper2,
-                borderRadius: BorderRadius.circular(999),
+      child: Center(
+        child: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: PocketColors.persimmon,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: PocketColors.persimmon.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-              child: Text(
-                '✏️  $manualLabel',
-                style: GoogleFonts.spaceMono(
-                  fontSize: 11,
-                  color: PocketColors.inkSoft,
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

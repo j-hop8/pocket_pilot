@@ -9,6 +9,7 @@ import '../features/carrier_sync/carrier_sync_screen.dart';
 import '../features/history/invoice_detail_screen.dart';
 import '../features/manual_entry/manual_entry_screen.dart';
 import '../features/shell/shell_scaffold.dart';
+import '../models/invoice.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -42,6 +43,13 @@ final appRouter = GoRouter(
       path: '/invoice/:id',
       builder: (context, state) =>
           InvoiceDetailScreen(invoiceId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      // Full edit of a user-originated invoice. The invoice to edit is passed
+      // via `extra` (the detail screen already has it loaded).
+      path: '/invoice/:id/edit',
+      builder: (context, state) =>
+          ManualEntryScreen(existing: state.extra as Invoice),
     ),
   ],
 );
