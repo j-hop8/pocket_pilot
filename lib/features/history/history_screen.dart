@@ -213,7 +213,7 @@ class _TransactionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    cat?.label ?? s.uncategorized,
+                    s.categoryName(cat?.key),
                     style: GoogleFonts.spaceMono(
                       fontSize: 10,
                       color: PocketColors.inkSoft,

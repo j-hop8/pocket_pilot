@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/categories.dart';
-import '../../core/formatters.dart';
 import '../../core/providers.dart';
 import '../../core/settings_provider.dart';
 import '../../core/strings.dart';
@@ -52,6 +51,7 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             _MonthNavigator(
               month: month,
+              s: s,
               onPrev: () => ref
                   .read(selectedMonthProvider.notifier)
                   .set(DateTime(month.year, month.month - 1)),
@@ -81,7 +81,7 @@ class DashboardScreen extends ConsumerWidget {
                 sorted: sorted,
                 catMap: catMap,
                 byCategoryLabel: s.byCategory,
-                otherLabel: s.categoryOther,
+                s: s,
               ),
           ],
         );
@@ -94,11 +94,13 @@ class DashboardScreen extends ConsumerWidget {
 
 class _MonthNavigator extends StatelessWidget {
   final DateTime month;
+  final AppStrings s;
   final VoidCallback onPrev;
   final VoidCallback onNext;
 
   const _MonthNavigator({
     required this.month,
+    required this.s,
     required this.onPrev,
     required this.onNext,
   });
@@ -110,7 +112,7 @@ class _MonthNavigator extends StatelessWidget {
         _NavButton(icon: Icons.chevron_left, onTap: onPrev),
         const SizedBox(width: 12),
         Text(
-          formatMonth(month),
+          s.formatMonthNav(month),
           style: GoogleFonts.spaceGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -240,13 +242,13 @@ class _CategoryCard extends StatelessWidget {
   final List<MapEntry<int?, int>> sorted;
   final Map<int, Category> catMap;
   final String byCategoryLabel;
-  final String otherLabel;
+  final AppStrings s;
 
   const _CategoryCard({
     required this.sorted,
     required this.catMap,
     required this.byCategoryLabel,
-    required this.otherLabel,
+    required this.s,
   });
 
   @override
@@ -284,7 +286,7 @@ class _CategoryCard extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: _CategoryRow(
-                label: cat?.label ?? otherLabel,
+                label: s.categoryName(cat?.key),
                 amount: e.value,
                 color: style.color,
                 fraction: maxVal > 0 ? e.value / maxVal : 0.0,

@@ -32,7 +32,7 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
         actions: [
           IconButton(
             icon: const Icon(Icons.cloud_sync_outlined),
-            tooltip: 'Carrier sync',
+            tooltip: s.carrierSyncTitle,
             onPressed: () => context.push('/carrier'),
           ),
         ],

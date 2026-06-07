@@ -6,10 +6,6 @@ const _zhMonths = [
   '', '一', '二', '三', '四', '五', '六',
   '七', '八', '九', '十', '十一', '十二'
 ];
-const _enMonths = [
-  '', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
-];
 final _monthFmt = DateFormat('MMMM yyyy');
 
 class AppStrings {
@@ -32,8 +28,30 @@ class AppStrings {
   String get categoryOther       => _zh ? '其他' : 'Other';
 
   String formatMonthHero(DateTime d) => _zh
-      ? '${_zhMonths[d.month]}月支出 · ${_enMonths[d.month]}'
+      ? '${_zhMonths[d.month]}月支出'
       : _monthFmt.format(d).toUpperCase();
+
+  /// Month navigator label, e.g. "2026年6月" / "June 2026".
+  String formatMonthNav(DateTime d) =>
+      _zh ? '${d.year}年${d.month}月' : _monthFmt.format(d);
+
+  // ── Categories ───────────────────────────────────────────────────────────────
+  /// Localized category name keyed by the language-independent category [key].
+  /// Source of truth for display, so the mixed DB labels (e.g. "Shopping 購物")
+  /// are never shown. A null/unknown key renders as "Uncategorized".
+  String categoryName(String? key) => switch (key) {
+    'groceries'     => _zh ? '超市'     : 'Groceries',
+    'dining'        => _zh ? '餐飲'     : 'Dining',
+    'transport'     => _zh ? '交通'     : 'Transport',
+    'entertainment' => _zh ? '娛樂'     : 'Entertainment',
+    'health'        => _zh ? '醫療健康' : 'Health',
+    'utilities'     => _zh ? '水電費'   : 'Utilities',
+    'shopping'      => _zh ? '購物'     : 'Shopping',
+    'education'     => _zh ? '教育'     : 'Education',
+    'travel'        => _zh ? '旅遊'     : 'Travel',
+    'other'         => _zh ? '其他'     : 'Other',
+    _               => _zh ? '未分類'   : 'Uncategorized',
+  };
 
   // ── History ────────────────────────────────────────────────────────────────
   String get noHistory       => _zh ? '還沒有帳目'     : 'No records yet';
@@ -139,4 +157,56 @@ class AppStrings {
 
   String get syncStatusErrorPrefix =>
       _zh ? '上次同步失敗' : 'Last sync failed';
+
+  // ── Carrier sync screen ──────────────────────────────────────────────────────
+  String get carrierSyncTitle    => _zh ? '載具同步' : 'Carrier sync';
+  String get carrierCredentials  => _zh ? '載具帳密' : 'Carrier credentials';
+  String get carrierCredsHint    => _zh
+      ? '財政部電子發票平台的登入資訊，儲存後可用於日後自動同步；第一階段請用下方 CSV 匯入。'
+      : 'E-invoice portal login. Saved for future auto-sync; Phase 1 imports via CSV below.';
+  String get credentialsSaved    => _zh ? '帳密已儲存' : 'Credentials saved';
+  String get phoneLabel          => _zh ? '手機號碼' : 'Phone';
+  String get passwordLabel       => _zh ? '密碼' : 'Password';
+  String get leaveBlankKeep      => _zh ? '留空則沿用目前密碼' : 'Leave blank to keep current';
+  String get credsStorageWarning => _zh
+      ? '此 demo 將帳密儲存於 Supabase，請勿在共用環境輸入真實密碼。'
+      : 'Stored in Supabase for this demo. Don\'t use a real password in a shared environment.';
+  String get updateCredentials   => _zh ? '更新帳密' : 'Update credentials';
+  String get saveCredentials     => _zh ? '儲存帳密' : 'Save credentials';
+  String get credsSavedSnack     => _zh ? '帳密已儲存' : 'Credentials saved';
+  String get notSyncedYetLong    => _zh
+      ? '尚未同步 — 先用下方 CSV 匯入開始記帳。'
+      : 'Not synced yet — import a CSV below to get started.';
+
+  String get syncNowDescConnected    => _zh
+      ? '自動登入並抓取你最新的發票。'
+      : 'Log in and pull your latest invoices automatically.';
+  String get syncNowDescDisconnected => _zh
+      ? '請先在上方儲存載具帳密，再執行同步。'
+      : 'Save your carrier credentials above first, then run a sync.';
+
+  String get importInvoices     => _zh ? '匯入發票' : 'Import invoices';
+  String get importInvoicesHint => _zh
+      ? '從電子發票平台下載「消費明細」CSV，再到這裡匯入；重複的發票會自動略過。'
+      : 'Download your invoice CSV from the e-invoice portal (消費明細), then import it here. Duplicates are skipped automatically.';
+  String get whenToUseTitle => _zh ? '使用時機' : 'When to use this';
+  String get whenToUseBody  => _zh
+      ? '自動載具同步尚未上線，目前請用 CSV 匯入發票。若同步失敗或最新發票還沒出現，也可重新匯入 CSV，新的發票會被加入（重複自動略過）。'
+      : 'Automatic carrier sync isn\'t live yet, so CSV import is the way to pull in invoices for now. It\'s also the fallback if a sync fails or your latest invoices haven\'t shown up — re-import the CSV and any new ones will be added (duplicates skipped).';
+  String get importing      => _zh ? '匯入中…' : 'Importing…';
+  String get chooseCsvFile  => _zh ? '選擇 CSV 檔案' : 'Choose CSV file';
+  String get couldNotReadFile => _zh ? '無法讀取檔案內容。' : 'Could not read file contents.';
+  String get noInvoicesInFile => _zh ? '檔案中沒有發票。' : 'No invoices found in that file.';
+  String get lastImport       => _zh ? '上次匯入' : 'Last import';
+
+  String importedSnack(int inserted, int skipped) => _zh
+      ? '已匯入 $inserted 筆，略過 $skipped 筆。'
+      : 'Imported $inserted new, skipped $skipped.';
+  String importFailedError(Object e) => _zh ? '匯入失敗：$e' : 'Import failed: $e';
+  String newInvoicesStat(int n) => _zh ? '$n 筆新發票' : '$n new invoices';
+  String lineItemsStat(int n)   => _zh ? '$n 筆品項' : '$n line items';
+  String skippedStat(int n)     => _zh ? '$n 筆已存在（略過）' : '$n already present (skipped)';
+  String lastSyncLine(String date, int count) => _zh
+      ? '上次同步：$date（$count 筆）'
+      : 'Last sync: $date ($count invoices)';
 }

@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/categories.dart';
+import '../core/settings_provider.dart';
 import '../models/category.dart';
 
 /// Small colored chip showing a category. Tap is optional (used in pickers /
 /// future override UI). Pass a resolved [Category]; null renders "Uncategorized".
-class CategoryBadge extends StatelessWidget {
+class CategoryBadge extends ConsumerWidget {
   final Category? category;
   final VoidCallback? onTap;
 
   const CategoryBadge({super.key, required this.category, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final style = styleForKey(category?.key);
-    final label = category?.label ?? 'Uncategorized';
+    final label = s.categoryName(category?.key);
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

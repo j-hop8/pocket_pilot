@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formatters.dart';
 import '../../core/providers.dart';
+import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
 import '../../models/sync_result.dart';
 
 /// Carrier sync screen: enter/store the e-invoice carrier credentials, and
@@ -56,6 +58,7 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
   }
 
   Future<void> _saveCredentials() async {
+    final s = ref.read(stringsProvider);
     setState(() => _saving = true);
     try {
       await ref.read(carrierRepositoryProvider).saveCredentials(
@@ -69,15 +72,16 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
         _editing = false;
         _password.clear();
       });
-      _snack('Credentials saved');
+      _snack(s.credsSavedSnack);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('Save failed: $e');
+      _snack(s.saveFailedError(e));
     }
   }
 
   Future<void> _syncNow() async {
+    final s = ref.read(stringsProvider);
     setState(() => _syncingNow = true);
     try {
       final result = await ref.read(carrierRepositoryProvider).syncNow();
@@ -87,17 +91,16 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
       // The detailed result card (_result) is driven by the CSV import, which
       // has the full breakdown; the server sync only knows the inserted count.
       setState(() => _syncingNow = false);
-      _snack(result.isEmpty
-          ? 'No new invoices.'
-          : 'Synced ${result.inserted} new invoice(s).');
+      _snack(s.syncOkSnack(result.inserted));
     } catch (e) {
       if (!mounted) return;
       setState(() => _syncingNow = false);
-      _snack('Sync failed: $e');
+      _snack(s.syncFailedError(e));
     }
   }
 
   Future<void> _importCsv() async {
+    final s = ref.read(stringsProvider);
     setState(() => _importing = true);
     try {
       final picked = await FilePicker.platform.pickFiles(
@@ -112,7 +115,7 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
       final bytes = picked.files.single.bytes;
       if (bytes == null) {
         setState(() => _importing = false);
-        _snack('Could not read file contents.');
+        _snack(s.couldNotReadFile);
         return;
       }
       final content = utf8.decode(bytes, allowMalformed: true);
@@ -129,27 +132,29 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
         _result = result;
       });
       _snack(result.isEmpty
-          ? 'No invoices found in that file.'
-          : 'Imported ${result.inserted} new, skipped ${result.skipped}.');
+          ? s.noInvoicesInFile
+          : s.importedSnack(result.inserted, result.skipped));
     } catch (e) {
       if (!mounted) return;
       setState(() => _importing = false);
-      _snack('Import failed: $e');
+      _snack(s.importFailedError(e));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final config = ref.watch(carrierConfigProvider).asData?.value;
     final hasSavedCredentials = config != null && (config.phone?.isNotEmpty ?? false);
     final showForm = _editing || !hasSavedCredentials;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Carrier sync')),
+      appBar: AppBar(title: Text(s.carrierSyncTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _CredentialsCard(
+            s: s,
             phone: _phone,
             password: _password,
             obscure: _obscure,
@@ -171,12 +176,14 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
           ),
           const SizedBox(height: 16),
           _SyncNowCard(
+            s: s,
             syncing: _syncingNow,
             onSync: _syncingNow ? null : _syncNow,
             connected: hasSavedCredentials,
           ),
           const SizedBox(height: 16),
           _ImportCard(
+            s: s,
             importing: _importing,
             onImport: _importing ? null : _importCsv,
             lastSyncedAt: config?.lastSyncedAt,
@@ -190,6 +197,7 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
 }
 
 class _CredentialsCard extends StatelessWidget {
+  final AppStrings s;
   final TextEditingController phone;
   final TextEditingController password;
   final bool obscure;
@@ -210,6 +218,7 @@ class _CredentialsCard extends StatelessWidget {
   final VoidCallback? onCancelEdit;
 
   const _CredentialsCard({
+    required this.s,
     required this.phone,
     required this.password,
     required this.obscure,
@@ -233,14 +242,13 @@ class _CredentialsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Carrier credentials',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              s.carrierCredentials,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              '財政部電子發票 portal login. Saved for future auto-sync; '
-              'Phase 1 imports via CSV below.',
+              s.carrierCredsHint,
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
             const SizedBox(height: 16),
@@ -268,9 +276,9 @@ class _CredentialsCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Credentials saved',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Text(
+                    s.credentialsSaved,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -291,9 +299,8 @@ class _CredentialsCard extends StatelessWidget {
           Expanded(
             child: Text(
               lastSyncedAt != null
-                  ? 'Last sync ${formatDate(lastSyncedAt!)} · '
-                      '${lastSyncCount ?? 0} invoices'
-                  : 'Not synced yet — import a CSV below to get started.',
+                  ? s.lastSyncedText(formatDate(lastSyncedAt!), lastSyncCount ?? 0)
+                  : s.notSyncedYetLong,
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
           ),
@@ -305,7 +312,7 @@ class _CredentialsCard extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: onEdit,
           icon: const Icon(Icons.edit_outlined, size: 18),
-          label: const Text('Update credentials'),
+          label: Text(s.updateCredentials),
         ),
       ),
     ];
@@ -317,10 +324,10 @@ class _CredentialsCard extends StatelessWidget {
       TextField(
         controller: phone,
         keyboardType: TextInputType.phone,
-        decoration: const InputDecoration(
-          labelText: 'Phone 手機號碼',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.phone_outlined),
+        decoration: InputDecoration(
+          labelText: s.phoneLabel,
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.phone_outlined),
         ),
       ),
       const SizedBox(height: 12),
@@ -328,8 +335,8 @@ class _CredentialsCard extends StatelessWidget {
         controller: password,
         obscureText: obscure,
         decoration: InputDecoration(
-          labelText: 'Password 密碼',
-          helperText: savedPhone != null ? 'Leave blank to keep current' : null,
+          labelText: s.passwordLabel,
+          helperText: savedPhone != null ? s.leaveBlankKeep : null,
           border: const OutlineInputBorder(),
           prefixIcon: const Icon(Icons.lock_outline),
           suffixIcon: IconButton(
@@ -345,8 +352,7 @@ class _CredentialsCard extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Stored in Supabase for this demo. Don\'t use a real '
-              'password in a shared environment.',
+              s.credsStorageWarning,
               style: TextStyle(fontSize: 11, color: scheme.outline),
             ),
           ),
@@ -359,7 +365,7 @@ class _CredentialsCard extends StatelessWidget {
           if (onCancelEdit != null)
             TextButton(
               onPressed: saving ? null : onCancelEdit,
-              child: const Text('Cancel'),
+              child: Text(s.cancel),
             ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -371,7 +377,7 @@ class _CredentialsCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: const Text('Save credentials'),
+            label: Text(s.saveCredentials),
           ),
         ],
       ),
@@ -389,6 +395,7 @@ String _maskPhone(String? phone) {
 /// Primary on-demand sync: invokes the server-side carrier-sync (login →
 /// download CSV → ingest). The CSV import below remains the manual fallback.
 class _SyncNowCard extends StatelessWidget {
+  final AppStrings s;
   final bool syncing;
   final VoidCallback? onSync;
 
@@ -396,6 +403,7 @@ class _SyncNowCard extends StatelessWidget {
   final bool connected;
 
   const _SyncNowCard({
+    required this.s,
     required this.syncing,
     required this.onSync,
     required this.connected,
@@ -410,15 +418,13 @@ class _SyncNowCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Sync now',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              s.syncNow,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              connected
-                  ? 'Log in and pull your latest invoices automatically.'
-                  : 'Save your carrier credentials above first, then run a sync.',
+              connected ? s.syncNowDescConnected : s.syncNowDescDisconnected,
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
             const SizedBox(height: 16),
@@ -434,7 +440,7 @@ class _SyncNowCard extends StatelessWidget {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.sync),
-                label: Text(syncing ? 'Syncing…' : 'Sync now'),
+                label: Text(syncing ? s.syncing : s.syncNow),
               ),
             ),
           ],
@@ -445,6 +451,7 @@ class _SyncNowCard extends StatelessWidget {
 }
 
 class _ImportCard extends StatelessWidget {
+  final AppStrings s;
   final bool importing;
   final VoidCallback? onImport;
   final DateTime? lastSyncedAt;
@@ -452,6 +459,7 @@ class _ImportCard extends StatelessWidget {
   final SyncResult? result;
 
   const _ImportCard({
+    required this.s,
     required this.importing,
     required this.onImport,
     required this.lastSyncedAt,
@@ -468,15 +476,13 @@ class _ImportCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Import invoices',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              s.importInvoices,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              'Download your invoice CSV from the e-invoice portal '
-              '(消費明細), then import it here. Duplicates are skipped '
-              'automatically.',
+              s.importInvoicesHint,
               style: TextStyle(fontSize: 12, color: scheme.outline),
             ),
             const SizedBox(height: 12),
@@ -499,20 +505,12 @@ class _ImportCard extends StatelessWidget {
                           height: 1.4,
                           color: scheme.onSurfaceVariant,
                         ),
-                        children: const [
+                        children: [
                           TextSpan(
-                            text: 'When to use this  使用時機\n',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                            text: '${s.whenToUseTitle}\n',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                          TextSpan(
-                            text:
-                                'Automatic carrier sync isn\'t live yet, so CSV '
-                                'import is the way to pull in invoices for now. '
-                                'It\'s also the fallback if a sync fails or your '
-                                'latest invoices haven\'t shown up — re-import '
-                                'the CSV and any new ones will be added '
-                                '(duplicates skipped).',
-                          ),
+                          TextSpan(text: s.whenToUseBody),
                         ],
                       ),
                     ),
@@ -532,7 +530,7 @@ class _ImportCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.upload_file_outlined),
-                label: Text(importing ? 'Importing…' : 'Choose CSV file'),
+                label: Text(importing ? s.importing : s.chooseCsvFile),
               ),
             ),
             if (lastSyncedAt != null) ...[
@@ -542,8 +540,7 @@ class _ImportCard extends StatelessWidget {
                   Icon(Icons.history, size: 16, color: scheme.outline),
                   const SizedBox(width: 6),
                   Text(
-                    'Last sync: ${formatDate(lastSyncedAt!)} '
-                    '(${lastSyncCount ?? 0} invoices)',
+                    s.lastSyncLine(formatDate(lastSyncedAt!), lastSyncCount ?? 0),
                     style: TextStyle(fontSize: 12, color: scheme.outline),
                   ),
                 ],
@@ -551,7 +548,7 @@ class _ImportCard extends StatelessWidget {
             ],
             if (result != null) ...[
               const Divider(height: 28),
-              _ResultSummary(result: result!),
+              _ResultSummary(s: s, result: result!),
             ],
           ],
         ),
@@ -561,8 +558,9 @@ class _ImportCard extends StatelessWidget {
 }
 
 class _ResultSummary extends StatelessWidget {
+  final AppStrings s;
   final SyncResult result;
-  const _ResultSummary({required this.result});
+  const _ResultSummary({required this.s, required this.result});
 
   @override
   Widget build(BuildContext context) {
@@ -572,15 +570,14 @@ class _ResultSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Last import',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(s.lastImport,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         _statRow(context, Icons.add_circle_outline,
-            '${result.inserted} new invoices'),
-        _statRow(
-            context, Icons.list_alt_outlined, '${result.items} line items'),
+            s.newInvoicesStat(result.inserted)),
+        _statRow(context, Icons.list_alt_outlined, s.lineItemsStat(result.items)),
         _statRow(context, Icons.skip_next_outlined,
-            '${result.skipped} already present (skipped)'),
+            s.skippedStat(result.skipped)),
         if (range != null)
           _statRow(context, Icons.date_range_outlined, range),
       ],
