@@ -95,4 +95,48 @@ class AppStrings {
   String get languageLabel  => _zh ? '語言'   : 'LANGUAGE';
   String get langZh         => '繁體中文';
   String get langEn         => 'English';
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  String get signInTitle   => _zh ? '登入以同步你的發票' : 'Sign in to sync your invoices';
+  String get signInSubtitle => _zh
+      ? '用 Google 帳號登入，你的發票與消費只有你看得到。'
+      : 'Sign in with Google. Your invoices and spending stay private to you.';
+  String get signInWithGoogle => _zh ? '使用 Google 登入' : 'Continue with Google';
+  String get signInFailed     => _zh ? '登入失敗，請再試一次。' : 'Sign-in failed. Please try again.';
+  String get accountLabel     => _zh ? '帳號' : 'ACCOUNT';
+  String get signOut          => _zh ? '登出' : 'Sign out';
+
+  // ── Carrier sync ─────────────────────────────────────────────────────────────
+  String get carrierSyncLabel  => _zh ? '發票同步' : 'CARRIER SYNC';
+  String get autoSyncLabel     => _zh ? '自動同步' : 'Auto-sync';
+  String get autoSyncHint      => _zh
+      ? '定期登入財政部下載新發票'
+      : 'Periodically logs in and pulls new invoices';
+  String get syncIntervalLabel => _zh ? '同步頻率' : 'SYNC INTERVAL';
+  String get syncNow           => _zh ? '立即同步' : 'Sync now';
+  String get syncing           => _zh ? '同步中…' : 'Syncing…';
+  String get syncNever         => _zh ? '尚未同步' : 'Not synced yet';
+
+  /// Label for an interval in minutes (60 / 360 / 720 / 1440).
+  String syncIntervalOption(int minutes) => switch (minutes) {
+    60   => _zh ? '每小時'   : 'Hourly',
+    360  => _zh ? '每 6 小時' : 'Every 6h',
+    720  => _zh ? '每 12 小時' : 'Every 12h',
+    1440 => _zh ? '每天'     : 'Daily',
+    _    => _zh ? '$minutes 分鐘' : '$minutes min',
+  };
+
+  String lastSyncedText(String date, int count) => _zh
+      ? '上次同步 $date · $count 筆'
+      : 'Last sync $date · $count invoices';
+
+  String syncOkSnack(int inserted) => _zh
+      ? (inserted == 0 ? '同步完成：沒有新發票' : '同步完成：新增 $inserted 筆')
+      : (inserted == 0 ? 'Synced: no new invoices' : 'Synced: $inserted new');
+
+  String syncFailedError(Object e) =>
+      _zh ? '同步失敗：$e' : 'Sync failed: $e';
+
+  String get syncStatusErrorPrefix =>
+      _zh ? '上次同步失敗' : 'Last sync failed';
 }

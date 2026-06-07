@@ -1,5 +1,9 @@
 import 'package:intl/intl.dart';
 
+// Money conversion helpers now live in pp_core; re-export so existing callers
+// (manual_entry_screen, widget_test, etc.) need no import changes.
+export 'package:pp_core/pp_core.dart' show dollarsToCents, centsToDollars;
+
 final _twd = NumberFormat.currency(symbol: 'NT\$', decimalDigits: 0);
 final _date = DateFormat('yyyy-MM-dd');
 final _monthLabel = DateFormat('MMMM yyyy');
@@ -9,12 +13,6 @@ const _enMonths = ['', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', '
 
 /// cents (e.g. 35000) -> "NT$350".
 String formatTwd(int cents) => _twd.format(cents / 100);
-
-/// dollars typed by the user -> cents for storage.
-int dollarsToCents(num dollars) => (dollars * 100).round();
-
-/// cents -> dollars for editing in a form.
-num centsToDollars(int cents) => cents / 100;
 
 String formatDate(DateTime d) => _date.format(d);
 

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'core/auth_providers.dart';
+import 'core/auth_service.dart';
 
 /// Entry point. Supabase credentials are injected at build time via
 /// `--dart-define-from-file=dart_defines.json` (gitignored). The anon key is
@@ -19,7 +21,27 @@ Future<void> main() async {
   }
 
   await Supabase.initialize(url: url, anonKey: anonKey);
-  runApp(const ProviderScope(child: PocketPilotApp()));
+
+  // Build + initialize the Google→Supabase auth bridge before the app renders,
+  // so the login screen can show the web GIS button immediately. A bad/missing
+  // client id must not crash startup — failures surface on the sign-in attempt.
+  const iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+  final authService = AuthService(
+    webClientId: const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID'),
+    iosClientId: iosClientId.isEmpty ? null : iosClientId,
+  );
+  try {
+    await authService.initialize();
+  } catch (e) {
+    debugPrint('Google sign-in init failed: $e');
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [authServiceProvider.overrideWithValue(authService)],
+      child: const PocketPilotApp(),
+    ),
+  );
 }
 
 /// Shown when SUPABASE_URL / SUPABASE_ANON_KEY were not provided at build time.

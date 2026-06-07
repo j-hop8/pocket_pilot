@@ -1,12 +1,31 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/supabase.dart';
+import '../features/auth/login_screen.dart';
 import '../features/carrier_sync/carrier_sync_screen.dart';
 import '../features/history/invoice_detail_screen.dart';
 import '../features/manual_entry/manual_entry_screen.dart';
 import '../features/shell/shell_scaffold.dart';
 
 final appRouter = GoRouter(
+  initialLocation: '/',
+  // Re-evaluate `redirect` whenever the Supabase auth state changes.
+  refreshListenable: GoRouterRefreshStream(supabase.auth.onAuthStateChange),
+  redirect: (context, state) {
+    final signedIn = supabase.auth.currentSession != null;
+    final loggingIn = state.matchedLocation == '/login';
+    if (!signedIn) return loggingIn ? null : '/login';
+    if (loggingIn) return '/';
+    return null;
+  },
   routes: [
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
     GoRoute(
       path: '/',
       builder: (context, state) => const ShellScaffold(),
@@ -26,3 +45,21 @@ final appRouter = GoRouter(
     ),
   ],
 );
+
+/// Adapts a [Stream] to a [Listenable] so GoRouter re-runs `redirect` on each
+/// emission. Standard go_router recipe for auth-driven redirects.
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription =
+        stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}

@@ -382,8 +382,12 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Secrets for the carrier-sync function. SUPABASE_URL / SUPABASE_ANON_KEY /
+# SUPABASE_SERVICE_ROLE_KEY are injected automatically; only these are extra.
+# Set them in supabase/.env locally and via `supabase secrets set` in the cloud.
+[edge_runtime.secrets]
+BROWSER_WS_ENDPOINT = "env(BROWSER_WS_ENDPOINT)"
+CRON_SECRET = "env(CRON_SECRET)"
 
 [analytics]
 enabled = true

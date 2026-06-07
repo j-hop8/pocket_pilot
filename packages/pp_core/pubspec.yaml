@@ -1,0 +1,9 @@
+name: pp_core
+description: "Pure-Dart shared core for PocketPilot — CSV parser, categorizer, money helpers. No Flutter dependency."
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  csv: ^6.0.0

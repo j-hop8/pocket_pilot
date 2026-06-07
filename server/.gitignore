@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+*.log
+# spike artifacts (captcha samples, screenshots)
+.spike/
