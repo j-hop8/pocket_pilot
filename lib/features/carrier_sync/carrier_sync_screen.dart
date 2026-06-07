@@ -80,6 +80,49 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
     }
   }
 
+  Future<void> _removeCredentials() async {
+    final s = ref.read(stringsProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.removeCredsTitle),
+        content: Text(s.removeCredsBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(s.removeCredsConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(carrierRepositoryProvider).clearCredentials();
+      ref.invalidate(carrierConfigProvider);
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _editing = false;
+        _phone.clear();
+        _password.clear();
+      });
+      _snack(s.credsRemovedSnack);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _snack(s.removeFailedError(e));
+    }
+  }
+
   Future<void> _syncNow() async {
     final s = ref.read(stringsProvider);
     setState(() => _syncingNow = true);
@@ -173,6 +216,7 @@ class _CarrierSyncScreenState extends ConsumerState<CarrierSyncScreen> {
                       _password.clear();
                     })
                 : null,
+            onRemove: hasSavedCredentials && !_saving ? _removeCredentials : null,
           ),
           const SizedBox(height: 16),
           _SyncNowCard(
@@ -217,6 +261,10 @@ class _CredentialsCard extends StatelessWidget {
   /// can't be cancelled into an empty state).
   final VoidCallback? onCancelEdit;
 
+  /// Null when there are no saved credentials to remove (or a save/remove is in
+  /// flight). Deletes the stored login for users who no longer want it saved.
+  final VoidCallback? onRemove;
+
   const _CredentialsCard({
     required this.s,
     required this.phone,
@@ -231,6 +279,7 @@ class _CredentialsCard extends StatelessWidget {
     required this.lastSyncCount,
     required this.onEdit,
     required this.onCancelEdit,
+    required this.onRemove,
   });
 
   @override
@@ -381,6 +430,18 @@ class _CredentialsCard extends StatelessWidget {
           ),
         ],
       ),
+      if (onRemove != null) ...[
+        const Divider(height: 28),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onRemove,
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: Text(s.removeCredentials),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+          ),
+        ),
+      ],
     ];
   }
 }

@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import '../models/category.dart';
+
 enum AppLang { zh, en }
 
 const _zhMonths = [
@@ -63,6 +65,35 @@ class AppStrings {
     _               => _zh ? '未分類'   : 'Uncategorized',
   };
 
+  /// Display name for a resolved category: built-ins use the localized name
+  /// above; user-created / edited categories carry their own (single-language)
+  /// [Category.label]. A null category renders as "Uncategorized".
+  String catName(Category? c) {
+    if (c == null) return uncategorized;
+    return c.isBuiltin ? categoryName(c.key) : c.label;
+  }
+
+  // ── Manage categories ────────────────────────────────────────────────────────
+  String get manageCategories  => _zh ? '管理類別'   : 'CATEGORIES';
+  String get manageCategoriesHint =>
+      _zh ? '新增、編輯或刪除你的收支類別' : 'Add, edit or delete your categories';
+  String get categoriesTitle   => _zh ? '類別'       : 'Categories';
+  String get addCategory       => _zh ? '新增類別'   : 'Add category';
+  String get editCategory      => _zh ? '編輯類別'   : 'Edit category';
+  String get categoryNameLabel => _zh ? '名稱'       : 'Name';
+  String get enterCategoryName => _zh ? '請輸入名稱。' : 'Enter a name.';
+  String get chooseIcon        => _zh ? '圖示'       : 'Icon';
+  String get chooseColor       => _zh ? '顏色'       : 'Color';
+  String get noCategoriesYet   => _zh ? '還沒有類別'  : 'No categories yet';
+  String get deleteCategoryTitle => _zh ? '刪除這個類別？' : 'Delete this category?';
+  String get deleteCategoryBody  => _zh
+      ? '使用此類別的帳目會變成「未分類」。'
+      : 'Records using it will become "Uncategorized".';
+  String categorySaveFailed(Object e) =>
+      _zh ? '儲存失敗：$e' : 'Save failed: $e';
+  String categoryDeleteFailed(Object e) =>
+      _zh ? '刪除失敗：$e' : 'Delete failed: $e';
+
   // ── History ────────────────────────────────────────────────────────────────
   String get noHistory       => _zh ? '還沒有帳目'     : 'No records yet';
   String get deleteTitle     => _zh ? '刪除這筆帳目？'  : 'Delete this record?';
@@ -71,6 +102,23 @@ class AppStrings {
   String get delete          => _zh ? '刪除'           : 'Delete';
   String get unknownMerchant => _zh ? '未知商家'       : 'Unknown';
   String get uncategorized   => _zh ? '未分類'         : 'Uncategorized';
+
+  // ── History filters ──────────────────────────────────────────────────────────
+  String get filterKindTitle     => _zh ? '類型'       : 'Type';
+  String get filterAllKinds      => _zh ? '全部'       : 'All';
+  String get filterCategoryLabel => _zh ? '類別'       : 'Category';
+  String get filterTimeLabel     => _zh ? '時間'       : 'Time';
+  String get matchByInvoice      => _zh ? '依整筆'     : 'By invoice';
+  String get matchByItem         => _zh ? '依品項'     : 'By item';
+  String get timeAll             => _zh ? '全部時間'   : 'All time';
+  String get timeThisMonth       => _zh ? '本月'       : 'This month';
+  String get timeLast30          => _zh ? '近 30 天'   : 'Last 30 days';
+  String get timeThisYear        => _zh ? '今年'       : 'This year';
+  String get timeCustom          => _zh ? '自訂範圍'   : 'Custom range';
+  String get noMatches           => _zh ? '沒有符合的帳目' : 'No matching records';
+  String get clearFilters        => _zh ? '清除'       : 'Clear';
+  String categoryCount(int n)    => _zh ? '$n 個類別'  : '$n categories';
+  String resultsCount(int n)     => _zh ? '$n 筆'      : '$n result${n == 1 ? '' : 's'}';
 
   // ── Capture ────────────────────────────────────────────────────────────────
   // Source tabs: 0 = manual entry, 1 = e-invoice QR, 2 = paper receipt.
@@ -199,6 +247,15 @@ class AppStrings {
   String get updateCredentials   => _zh ? '更新帳密' : 'Update credentials';
   String get saveCredentials     => _zh ? '儲存帳密' : 'Save credentials';
   String get credsSavedSnack     => _zh ? '帳密已儲存' : 'Credentials saved';
+  String get removeCredentials   => _zh ? '移除帳密' : 'Remove credentials';
+  String get removeCredsTitle    => _zh ? '移除已儲存的帳密？' : 'Remove saved credentials?';
+  String get removeCredsBody     => _zh
+      ? '將從你的帳號刪除手機號碼與密碼，並關閉自動同步。之後需要重新輸入才能再次同步。'
+      : 'Your phone number and password will be deleted from your account and auto-sync will be turned off. You\'ll need to enter them again to sync.';
+  String get removeCredsConfirm  => _zh ? '移除' : 'Remove';
+  String get credsRemovedSnack   => _zh ? '帳密已移除' : 'Credentials removed';
+  String removeFailedError(Object e) =>
+      _zh ? '移除失敗：$e' : 'Remove failed: $e';
   String get notSyncedYetLong    => _zh
       ? '尚未同步 — 自動同步即將執行，或於下方立即同步 / 匯入 CSV。'
       : 'Not synced yet — auto-sync will run soon, or sync now / import a CSV below.';

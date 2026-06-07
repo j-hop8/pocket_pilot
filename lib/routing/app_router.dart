@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../core/supabase.dart';
 import '../features/auth/login_screen.dart';
 import '../features/carrier_sync/carrier_sync_screen.dart';
+import '../features/categories/category_management_screen.dart';
 import '../features/history/invoice_detail_screen.dart';
 import '../features/manual_entry/manual_entry_screen.dart';
 import '../features/shell/shell_scaffold.dart';
@@ -38,6 +39,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/carrier',
       builder: (context, state) => const CarrierSyncScreen(),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => const CategoryManagementScreen(),
     ),
     GoRoute(
       path: '/invoice/:id',

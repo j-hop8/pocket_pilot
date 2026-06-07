@@ -35,6 +35,15 @@ class CarrierRepository {
     });
   }
 
+  /// Erases the stored portal login via the `clear_carrier_credentials`
+  /// SECURITY DEFINER RPC: deletes the Vault password secret, clears the phone,
+  /// and turns auto-sync off. For users who no longer want their carrier
+  /// credentials saved in the app. The config row (and last-sync history) is
+  /// kept so the screen falls back to the disconnected state.
+  Future<void> clearCredentials() async {
+    await supabase.rpc('clear_carrier_credentials');
+  }
+
   /// Persists the auto-sync toggle + interval. Partial upsert touches only those
   /// columns, so credentials and last-sync state are preserved.
   Future<void> saveSyncSettings({

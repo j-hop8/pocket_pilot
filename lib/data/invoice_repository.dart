@@ -1,3 +1,4 @@
+import '../core/category_resolver.dart';
 import '../core/supabase.dart';
 import '../models/invoice.dart';
 import '../models/invoice_item.dart';
@@ -94,5 +95,70 @@ class InvoiceRepository {
   Future<void> delete(String id) async {
     // invoice_items rows cascade via the FK ON DELETE CASCADE.
     await supabase.from('invoices').delete().eq('id', id);
+  }
+
+  // ── Category history (learning from past categorizations) ────────────────────
+  // Auto-categorization consults these before the keyword categorizer: an item or
+  // merchant the user has categorized before should keep that category. Keys are
+  // normalized (trimmed + lower-cased); the *most recent* past choice wins. RLS
+  // scopes every read to the signed-in user.
+
+  /// Most-recent `category_id` the user assigned to a line item with each of
+  /// [names]. Item recency comes from the parent invoice's date (items carry no
+  /// timestamp of their own). Rows with no category are ignored.
+  Future<Map<String, int>> recentCategoryByItemName(List<String> names) async {
+    final distinct = _distinctTrimmed(names);
+    if (distinct.isEmpty) return {};
+    final rows = await supabase
+        .from('invoice_items')
+        .select('name, category_id, invoices!inner(invoice_date, created_at)')
+        .inFilter('name', distinct)
+        .not('category_id', 'is', null);
+    return foldMostRecentCategory([
+      for (final raw in rows)
+        _historyRow(raw,
+            keyField: 'name',
+            recency: raw['invoices'] as Map<String, dynamic>?),
+    ]);
+  }
+
+  /// Most-recent `category_id` the user assigned to invoices from each of
+  /// [merchants]. Rows with no category are ignored.
+  Future<Map<String, int>> recentCategoryByMerchant(List<String> merchants) async {
+    final distinct = _distinctTrimmed(merchants);
+    if (distinct.isEmpty) return {};
+    final rows = await supabase
+        .from('invoices')
+        .select('merchant_name, category_id, invoice_date, created_at')
+        .inFilter('merchant_name', distinct)
+        .not('category_id', 'is', null);
+    return foldMostRecentCategory([
+      for (final raw in rows)
+        _historyRow(raw, keyField: 'merchant_name', recency: raw),
+    ]);
+  }
+
+  List<String> _distinctTrimmed(List<String> values) {
+    final out = <String>{};
+    for (final v in values) {
+      final t = v.trim();
+      if (t.isNotEmpty) out.add(t);
+    }
+    return out.toList();
+  }
+
+  /// Maps a Supabase row into a [HistoryRow]. [recency] carries `invoice_date`
+  /// and `created_at` (both ISO strings, so the joined stamp sorts chronologically).
+  HistoryRow _historyRow(
+    Map<String, dynamic> row, {
+    required String keyField,
+    required Map<String, dynamic>? recency,
+  }) {
+    final rec = recency ?? const {};
+    return (
+      key: row[keyField] as String?,
+      categoryId: row['category_id'] as int?,
+      stamp: '${rec['invoice_date'] ?? ''}|${rec['created_at'] ?? ''}',
+    );
   }
 }

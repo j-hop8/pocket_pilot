@@ -16,8 +16,8 @@ class CategoryBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
-    final style = styleForKey(category?.key);
-    final label = s.categoryName(category?.key);
+    final style = styleForCategory(category);
+    final label = s.catName(category);
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

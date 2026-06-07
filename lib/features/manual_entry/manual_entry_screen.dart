@@ -337,7 +337,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         items: categories
             .map((c) => DropdownMenuItem(
                   value: c.id,
-                  child: Text(s.categoryName(c.key)),
+                  child: Text(s.catName(c)),
                 ))
             .toList(),
         onChanged: (v) => setState(() => _invoiceCategoryId = v),
@@ -366,7 +366,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         items: categories
             .map((c) => DropdownMenuItem(
                   value: c.id,
-                  child: Text(s.categoryName(c.key)),
+                  child: Text(s.catName(c)),
                 ))
             .toList(),
         onChanged: (v) => setState(() => _invoiceCategoryId = v),
@@ -496,7 +496,7 @@ class _ItemCard extends StatelessWidget {
               ),
               items: categories
                   .map((c) => DropdownMenuItem(
-                      value: c.id, child: Text(s.categoryName(c.key))))
+                      value: c.id, child: Text(s.catName(c))))
                   .toList(),
               onChanged: (v) {
                 draft.categoryId = v;

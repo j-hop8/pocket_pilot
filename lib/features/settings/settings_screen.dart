@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/auth_providers.dart';
@@ -33,6 +34,11 @@ class SettingsScreen extends ConsumerWidget {
             onSelect: (l) => ref.read(languageProvider.notifier).set(l),
             s: s,
           ),
+        ),
+        const SizedBox(height: 16),
+        _SectionCard(
+          label: s.manageCategories,
+          child: _ManageCategoriesTile(s: s),
         ),
         const SizedBox(height: 16),
         _SectionCard(
@@ -121,6 +127,42 @@ class _AccountTile extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Row that opens the category management screen.
+class _ManageCategoriesTile extends StatelessWidget {
+  final AppStrings s;
+  const _ManageCategoriesTile({required this.s});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => context.push('/categories'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.category_outlined,
+                size: 22, color: PocketColors.inkSoft),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                s.manageCategoriesHint,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: PocketColors.ink,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: PocketColors.inkSoft),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _SectionCard extends StatelessWidget {
   final String label;

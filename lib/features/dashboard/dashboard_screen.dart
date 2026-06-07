@@ -360,11 +360,11 @@ class _CategoryCard extends StatelessWidget {
           const SizedBox(height: 16),
           ...sorted.map((e) {
             final cat = e.key == null ? null : catMap[e.key];
-            final style = styleForKey(cat?.key);
+            final style = styleForCategory(cat);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: _CategoryRow(
-                label: s.categoryName(cat?.key),
+                label: s.catName(cat),
                 amount: e.value,
                 color: style.color,
                 fraction: maxVal > 0 ? e.value / maxVal : 0.0,

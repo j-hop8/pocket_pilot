@@ -250,9 +250,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
             ),
             for (final c in categories)
               ListTile(
-                leading: Icon(styleForKey(c.key).icon,
-                    color: styleForKey(c.key).color),
-                title: Text(s.categoryName(c.key)),
+                leading: Icon(styleForCategory(c).icon,
+                    color: styleForCategory(c).color),
+                title: Text(s.catName(c)),
                 trailing: c.id == current
                     ? const Icon(Icons.check, color: Colors.green)
                     : null,

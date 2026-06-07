@@ -43,18 +43,16 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               onAdd: () => context.push('/add'),
             ),
           )
-        else ...[
+        else
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
               child: _Viewfinder(
                 mascot: _mascot,
                 hint: s.hintFor(_sourceIndex),
               ),
             ),
           ),
-          const _BottomSheet(),
-        ],
       ],
     );
   }
@@ -322,45 +320,4 @@ class _BracketPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BottomSheet extends StatelessWidget {
-  const _BottomSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        color: PocketColors.card,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: PocketColors.persimmon,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 4),
-            boxShadow: [
-              BoxShadow(
-                color: PocketColors.persimmon.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
