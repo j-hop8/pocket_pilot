@@ -43,6 +43,18 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) {
   return ref.watch(categoryRepositoryProvider).list();
 });
 
+/// Expense-only categories — the set offered when recording an expense.
+final expenseCategoriesProvider = FutureProvider<List<Category>>((ref) async {
+  final list = await ref.watch(categoriesProvider.future);
+  return list.where((c) => !c.isIncome).toList();
+});
+
+/// Income-only categories (Salary, Bonus, …) — offered when recording income.
+final incomeCategoriesProvider = FutureProvider<List<Category>>((ref) async {
+  final list = await ref.watch(categoriesProvider.future);
+  return list.where((c) => c.isIncome).toList();
+});
+
 /// Lookup map id -> Category, for resolving an invoice/item's category_id.
 final categoriesByIdProvider = FutureProvider<Map<int, Category>>((ref) async {
   final list = await ref.watch(categoriesProvider.future);

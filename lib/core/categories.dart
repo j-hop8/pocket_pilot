@@ -20,6 +20,13 @@ const Map<String, CategoryStyle> categoryStyles = {
   'education':     CategoryStyle(Color(0xFF7C75C6),      Icons.school_outlined),
   'travel':        CategoryStyle(PocketColors.butter,    Icons.flight_outlined),
   'other':         CategoryStyle(PocketColors.inkSoft,   Icons.category_outlined),
+  // Income categories — pine (the green income family) by default.
+  'salary':        CategoryStyle(PocketColors.pine,      Icons.payments_outlined),
+  'bonus':         CategoryStyle(PocketColors.pine,      Icons.card_giftcard_outlined),
+  'investment':    CategoryStyle(PocketColors.pine,      Icons.trending_up),
+  'refund':        CategoryStyle(PocketColors.pine,      Icons.undo),
+  'gift':          CategoryStyle(PocketColors.pine,      Icons.redeem_outlined),
+  'other_income':  CategoryStyle(PocketColors.pine,      Icons.savings_outlined),
 };
 
 const CategoryStyle fallbackCategoryStyle =

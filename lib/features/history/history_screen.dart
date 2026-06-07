@@ -47,9 +47,10 @@ class HistoryScreen extends ConsumerWidget {
         final items = <_Item>[];
         for (final key in dateKeys) {
           final dayInvoices = groups[key]!;
-          final dayTotal =
-              dayInvoices.fold<int>(0, (sum, i) => sum + i.totalAmount);
-          items.add(_Header(date: key, total: dayTotal));
+          // Net for the day: income adds, expense subtracts.
+          final dayNet = dayInvoices.fold<int>(
+              0, (sum, i) => sum + (i.isIncome ? i.totalAmount : -i.totalAmount));
+          items.add(_Header(date: key, net: dayNet));
           for (final inv in dayInvoices) {
             items.add(_Row(invoice: inv, catMap: catMap));
           }
@@ -67,7 +68,11 @@ class HistoryScreen extends ConsumerWidget {
                   catMap:   r.catMap,
                   s:        s,
                   onTap:    () => context.push('/invoice/${r.invoice.id}'),
-                  onDelete: () => _confirmDelete(context, ref, r.invoice.id!, s),
+                  // Long-press delete only for user-originated invoices; official
+                  // (synced) ones can't be deleted — see InvoiceDetailScreen.
+                  onDelete: r.invoice.canDelete
+                      ? () => _confirmDelete(context, ref, r.invoice.id!, s)
+                      : null,
                 ),
             };
           },
@@ -108,8 +113,8 @@ sealed class _Item {}
 
 class _Header extends _Item {
   final String date;
-  final int total;
-  _Header({required this.date, required this.total});
+  final int net; // signed: positive = net income, negative = net spending
+  _Header({required this.date, required this.net});
 }
 
 class _Row extends _Item {
@@ -140,7 +145,7 @@ class _DateHeader extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            '−${header.total ~/ 100}',
+            '${header.net >= 0 ? '+' : '−'}${header.net.abs() ~/ 100}',
             style: GoogleFonts.spaceMono(
               fontSize: 11,
               color: PocketColors.inkSoft,
@@ -157,7 +162,7 @@ class _TransactionTile extends StatelessWidget {
   final Map<int, Category> catMap;
   final AppStrings s;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   const _TransactionTile({
     required this.invoice,
@@ -225,11 +230,11 @@ class _TransactionTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '−${invoice.totalAmount ~/ 100}',
+              '${invoice.isIncome ? '+' : '−'}${invoice.totalAmount ~/ 100}',
               style: GoogleFonts.spaceMono(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: PocketColors.ink,
+                color: invoice.isIncome ? PocketColors.pine : PocketColors.ink,
               ),
             ),
           ],

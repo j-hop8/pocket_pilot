@@ -32,11 +32,18 @@ class DashboardScreen extends ConsumerWidget {
                 i.invoiceDate.year == month.year &&
                 i.invoiceDate.month == month.month)
             .toList();
-        final total =
-            monthInvoices.fold<int>(0, (sum, i) => sum + i.totalAmount);
+        final expenseInvoices =
+            monthInvoices.where((i) => !i.isIncome).toList();
+        final expenseTotal =
+            expenseInvoices.fold<int>(0, (sum, i) => sum + i.totalAmount);
+        final incomeTotal = monthInvoices
+            .where((i) => i.isIncome)
+            .fold<int>(0, (sum, i) => sum + i.totalAmount);
+        final net = incomeTotal - expenseTotal;
 
+        // Category breakdown is spending-only; income has its own categories.
         final byCategory = <int?, int>{};
-        for (final inv in monthInvoices) {
+        for (final inv in expenseInvoices) {
           byCategory.update(
             inv.categoryId,
             (v) => v + inv.totalAmount,
@@ -61,7 +68,9 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             _HeroCard(
-              total: total,
+              expenseTotal: expenseTotal,
+              incomeTotal: incomeTotal,
+              net: net,
               month: month,
               count: monthInvoices.length,
               s: s,
@@ -154,13 +163,17 @@ class _NavButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HeroCard extends StatelessWidget {
-  final int total;
+  final int expenseTotal;
+  final int incomeTotal;
+  final int net;
   final DateTime month;
   final int count;
   final AppStrings s;
 
   const _HeroCard({
-    required this.total,
+    required this.expenseTotal,
+    required this.incomeTotal,
+    required this.net,
     required this.month,
     required this.count,
     required this.s,
@@ -206,7 +219,7 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                (total ~/ 100).toString(),
+                (expenseTotal ~/ 100).toString(),
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 44,
                   fontWeight: FontWeight.w700,
@@ -216,7 +229,25 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _MiniStat(
+                label: s.incomeThisMonth,
+                value: incomeTotal,
+                signed: false,
+                color: PocketColors.pine,
+              ),
+              const SizedBox(width: 28),
+              _MiniStat(
+                label: s.netLabel,
+                value: net,
+                signed: true,
+                color: net >= 0 ? PocketColors.pine : PocketColors.ink,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               const CoinMascot(size: 28),
@@ -232,6 +263,53 @@ class _HeroCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A small labelled figure (Income / Net) shown under the hero's big expense
+/// number. [signed] prefixes the value with +/− (used for net, which can go
+/// negative); income is always shown as a positive inflow.
+class _MiniStat extends StatelessWidget {
+  final String label;
+  final int value;
+  final bool signed;
+  final Color color;
+
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.signed,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final magnitude = value.abs() ~/ 100;
+    final prefix = signed ? (value >= 0 ? '+' : '−') : '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.spaceMono(
+            fontSize: 9,
+            letterSpacing: 0.1,
+            color: PocketColors.inkSoft,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'NT\$$prefix$magnitude',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -15,6 +15,7 @@ class Invoice {
   final String currency;
   final int? categoryId;
   final String source; // 'carrier' | 'qr_scan' | 'ocr' | 'manual'
+  final String kind; // 'expense' | 'income'
   final Map<String, dynamic>? rawPayload;
   final DateTime? createdAt;
   final List<InvoiceItem> items;
@@ -29,10 +30,30 @@ class Invoice {
     this.currency = 'TWD',
     this.categoryId,
     required this.source,
+    this.kind = 'expense',
     this.rawPayload,
     this.createdAt,
     this.items = const [],
   });
+
+  /// Whether this record is money coming in (income) rather than going out
+  /// (expense). Amounts are stored positive regardless; the sign is applied by
+  /// the UI/aggregation based on this.
+  bool get isIncome => kind == 'income';
+
+  /// True when the row mirrors an official government e-invoice — pulled by
+  /// carrier sync or scanned from an e-invoice QR. Its merchant/date/amount/items
+  /// must match the official record, so the user may only change the category;
+  /// the rest is read-only and the invoice can't be deleted.
+  bool get isOfficial => source == 'carrier' || source == 'qr_scan';
+
+  /// Whether every field (not just the category) may be edited. Only true for
+  /// user-originated rows (manual entry, OCR best-effort) which may need fixing.
+  bool get canEditDetails => !isOfficial;
+
+  /// Whether the user may delete this invoice. Official rows would just re-sync,
+  /// so deletion is reserved for user-originated rows.
+  bool get canDelete => !isOfficial;
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
     final rawItems = (json['invoice_items'] as List<dynamic>?) ?? const [];
@@ -50,6 +71,7 @@ class Invoice {
       currency: (json['currency'] as String?) ?? 'TWD',
       categoryId: json['category_id'] as int?,
       source: json['source'] as String,
+      kind: json['kind'] as String? ?? 'expense',
       rawPayload: json['raw_payload'] as Map<String, dynamic>?,
       createdAt: json['created_at'] == null
           ? null
@@ -68,6 +90,20 @@ class Invoice {
         'currency': currency,
         'category_id': categoryId,
         'source': source,
+        'kind': kind,
         'raw_payload': rawPayload,
+      };
+
+  /// For a full update of the header. `source`/`raw_payload`/`created_at` are
+  /// left untouched; `updated_at` is DB-managed (trigger).
+  Map<String, dynamic> toUpdateJson() => {
+        'invoice_number': invoiceNumber,
+        'invoice_date': _dateOnly.format(invoiceDate),
+        'merchant_name': merchantName,
+        'sales_amount': salesAmount,
+        'total_amount': totalAmount,
+        'currency': currency,
+        'category_id': categoryId,
+        'kind': kind,
       };
 }

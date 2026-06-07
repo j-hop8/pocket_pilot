@@ -16,7 +16,7 @@ class AppStrings {
 
   // ── Nav ────────────────────────────────────────────────────────────────────
   String get navHome     => _zh ? '首頁' : 'Home';
-  String get navCapture  => _zh ? '掃描' : 'Scan';
+  String get navAdd      => _zh ? '新增' : 'Add';
   String get navHistory  => _zh ? '帳本' : 'History';
   String get navSettings => _zh ? '設定' : 'Settings';
 
@@ -26,6 +26,9 @@ class AppStrings {
   String spendingCount(int n)    => _zh ? '$n 筆消費' : '$n transaction${n == 1 ? '' : 's'}';
   String get byCategory          => _zh ? '類別分析' : 'BY CATEGORY';
   String get categoryOther       => _zh ? '其他' : 'Other';
+  String get incomeThisMonth     => _zh ? '收入' : 'INCOME';
+  String get expenseThisMonth    => _zh ? '支出' : 'EXPENSE';
+  String get netLabel            => _zh ? '結餘' : 'NET';
 
   String formatMonthHero(DateTime d) => _zh
       ? '${_zhMonths[d.month]}月支出'
@@ -50,6 +53,13 @@ class AppStrings {
     'education'     => _zh ? '教育'     : 'Education',
     'travel'        => _zh ? '旅遊'     : 'Travel',
     'other'         => _zh ? '其他'     : 'Other',
+    // Income categories.
+    'salary'        => _zh ? '薪資'     : 'Salary',
+    'bonus'         => _zh ? '獎金'     : 'Bonus',
+    'investment'    => _zh ? '投資'     : 'Investment',
+    'refund'        => _zh ? '退款'     : 'Refund',
+    'gift'          => _zh ? '禮金'     : 'Gift',
+    'other_income'  => _zh ? '其他收入' : 'Other income',
     _               => _zh ? '未分類'   : 'Uncategorized',
   };
 
@@ -63,21 +73,31 @@ class AppStrings {
   String get uncategorized   => _zh ? '未分類'         : 'Uncategorized';
 
   // ── Capture ────────────────────────────────────────────────────────────────
-  String get tabCarrier => _zh ? '載具'   : 'Carrier';
-  String get tabQR      => _zh ? '掃 QR'  : 'Scan QR';
-  String get tabPaper   => _zh ? '紙本'   : 'Paper';
+  // Source tabs: 0 = manual entry, 1 = e-invoice QR, 2 = paper receipt.
+  String get tabManual   => _zh ? '手動'       : 'Manual';
+  String get tabEInvoice => _zh ? '電子發票'   : 'e-Invoice';
+  String get tabReceipt  => _zh ? '收據'       : 'Receipt';
 
+  // Only used by the camera tabs (e-invoice / receipt); the manual tab has no frame.
   String hintFor(int srcIndex) => switch (srcIndex) {
-    0 => _zh ? '請先在財政部綁定手機載具'    : 'Link your phone carrier in the MoF app first',
-    2 => _zh ? '把紙本發票對準框框'          : 'Align the paper receipt with the frame',
-    _ => _zh ? '把發票上的 QR 對準框框'      : 'Align the QR code on the receipt with the frame',
+    2 => _zh ? '把收據對準框框'          : 'Align the paper receipt with the frame',
+    _ => _zh ? '把發票上的 QR 對準框框'  : 'Align the QR code on the receipt with the frame',
   };
 
-  String get pointCamera => _zh ? '對準發票'   : 'POINT CAMERA AT RECEIPT';
-  String get manualEntry => _zh ? '手動輸入'   : 'Manual entry';
+  String get manualPanelTitle => _zh ? '手動輸入' : 'Enter it yourself';
+  String get manualPanelHint  =>
+      _zh ? '直接填寫發票資料並送出' : 'Type in the invoice details and submit';
 
   // ── Manual entry ───────────────────────────────────────────────────────────
   String get addInvoice        => _zh ? '新增帳目'         : 'Add invoice';
+  String get editInvoice       => _zh ? '編輯帳目'         : 'Edit invoice';
+  String get addIncome         => _zh ? '新增收入'         : 'Add income';
+  String get editIncome        => _zh ? '編輯收入'         : 'Edit income';
+  String get expenseLabel      => _zh ? '支出'             : 'Expense';
+  String get incomeLabel       => _zh ? '收入'             : 'Income';
+  String get incomeSourceLabel => _zh ? '來源'             : 'Source';
+  String get amountLabel       => _zh ? '金額（NT\$）'     : 'Amount (NT\$)';
+  String get enterAmount       => _zh ? '請輸入金額。'     : 'Enter an amount.';
   String get dateLabel         => _zh ? '日期'             : 'Date';
   String get merchantLabel     => _zh ? '商家'             : 'Merchant';
   String get invoiceCategory   => _zh ? '帳目類別'         : 'Invoice category';
@@ -103,6 +123,11 @@ class AppStrings {
   String get unknownMerchantLong => _zh ? '未知商家'   : 'Unknown merchant';
   String get invoiceNoPrefix     => _zh ? '發票號碼：' : 'Invoice no.: ';
   String get noLineItems         => _zh ? '沒有品項資料。' : 'No line items.';
+  String get edit                => _zh ? '編輯'       : 'Edit';
+  String get changeCategory      => _zh ? '變更類別'   : 'Change category';
+  String get officialLockedHint  => _zh
+      ? '此發票來自官方同步，僅可變更類別。'
+      : 'Synced from the official e-invoice — only the category can be changed.';
   String datePrefix(String d)    => _zh ? '日期：$d'   : 'Date: $d';
   String qtyText(num qty, int? unit, String formattedUnit) => unit == null
       ? (_zh ? '數量 $qty' : 'Qty $qty')
@@ -162,8 +187,8 @@ class AppStrings {
   String get carrierSyncTitle    => _zh ? '載具同步' : 'Carrier sync';
   String get carrierCredentials  => _zh ? '載具帳密' : 'Carrier credentials';
   String get carrierCredsHint    => _zh
-      ? '財政部電子發票平台的登入資訊，儲存後可用於日後自動同步；第一階段請用下方 CSV 匯入。'
-      : 'E-invoice portal login. Saved for future auto-sync; Phase 1 imports via CSV below.';
+      ? '財政部電子發票平台的登入資訊，儲存後會用於自動同步，定期為你抓取最新發票。'
+      : 'E-invoice portal login. Saved credentials power auto-sync, which periodically pulls your latest invoices.';
   String get credentialsSaved    => _zh ? '帳密已儲存' : 'Credentials saved';
   String get phoneLabel          => _zh ? '手機號碼' : 'Phone';
   String get passwordLabel       => _zh ? '密碼' : 'Password';
@@ -175,8 +200,8 @@ class AppStrings {
   String get saveCredentials     => _zh ? '儲存帳密' : 'Save credentials';
   String get credsSavedSnack     => _zh ? '帳密已儲存' : 'Credentials saved';
   String get notSyncedYetLong    => _zh
-      ? '尚未同步 — 先用下方 CSV 匯入開始記帳。'
-      : 'Not synced yet — import a CSV below to get started.';
+      ? '尚未同步 — 自動同步即將執行，或於下方立即同步 / 匯入 CSV。'
+      : 'Not synced yet — auto-sync will run soon, or sync now / import a CSV below.';
 
   String get syncNowDescConnected    => _zh
       ? '自動登入並抓取你最新的發票。'
@@ -191,8 +216,8 @@ class AppStrings {
       : 'Download your invoice CSV from the e-invoice portal (消費明細), then import it here. Duplicates are skipped automatically.';
   String get whenToUseTitle => _zh ? '使用時機' : 'When to use this';
   String get whenToUseBody  => _zh
-      ? '自動載具同步尚未上線，目前請用 CSV 匯入發票。若同步失敗或最新發票還沒出現，也可重新匯入 CSV，新的發票會被加入（重複自動略過）。'
-      : 'Automatic carrier sync isn\'t live yet, so CSV import is the way to pull in invoices for now. It\'s also the fallback if a sync fails or your latest invoices haven\'t shown up — re-import the CSV and any new ones will be added (duplicates skipped).';
+      ? '自動同步會定期為你抓取發票，平常不需要手動操作。CSV 匯入適合補抓較早的發票，或在同步失敗、最新發票還沒出現時手動補匯（重複自動略過）。'
+      : 'Auto-sync now pulls your invoices periodically, so you usually don\'t need to do anything. Use CSV import to backfill older invoices, or as a fallback when a sync fails or your latest invoices haven\'t shown up yet — re-import and any new ones are added (duplicates skipped).';
   String get importing      => _zh ? '匯入中…' : 'Importing…';
   String get chooseCsvFile  => _zh ? '選擇 CSV 檔案' : 'Choose CSV file';
   String get couldNotReadFile => _zh ? '無法讀取檔案內容。' : 'Could not read file contents.';
