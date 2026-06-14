@@ -69,6 +69,15 @@ class InvoiceRepository {
         .update({'category_id': categoryId}).eq('invoice_id', id);
   }
 
+  /// Sets the invoice's merchant name — used when a tax-id lookup that came back
+  /// empty at scan time is retried from History. Only the header's name changes;
+  /// items and category are untouched.
+  Future<void> updateMerchantName(String id, String name) async {
+    await supabase
+        .from('invoices')
+        .update({'merchant_name': name}).eq('id', id);
+  }
+
   /// Overrides a single line item's category — for receipts from one store that
   /// mix categories (e.g. groceries + a household item). Leaves the invoice
   /// header and sibling items untouched.

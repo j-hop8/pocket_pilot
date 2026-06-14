@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../capture/capture_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../history/history_screen.dart';
+import '../scan/scan_progress_overlay.dart';
 import '../settings/settings_screen.dart';
 
 class ShellScaffold extends ConsumerStatefulWidget {
@@ -42,13 +43,19 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
           child: Divider(height: 1, color: PocketColors.line),
         ),
       ),
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          DashboardScreen(),
-          CaptureScreen(),
-          HistoryScreen(),
-          SettingsScreen(),
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _index,
+            children: const [
+              DashboardScreen(),
+              CaptureScreen(),
+              HistoryScreen(),
+              SettingsScreen(),
+            ],
+          ),
+          // Persistent background-scan progress, survives tab switches.
+          const ScanProgressOverlay(),
         ],
       ),
       bottomNavigationBar: Column(

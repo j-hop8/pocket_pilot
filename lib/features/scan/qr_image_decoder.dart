@@ -46,42 +46,37 @@ List<String> decodeQrCodesFromImage(Uint8List bytes) {
   return _scanRegionsSync(image);
 }
 
-/// Web photo-import decode.
+/// Web **deep-fallback** decode, on the UI thread.
+///
+/// Only reached on browsers with no Worker support — the common web path goes
+/// through `BarcodeDetector` or the zxing-wasm Worker (see `scan_decoder.dart`),
+/// both off-thread. zxing here still yields between passes so the mascot ticks.
 ///
 /// Pixels come from a **2D canvas** ([decodeImagePixelsWeb]: `createImageBitmap`
 /// → `drawImage` → `getImageData`), not `ui.Image.toByteData` — the latter
 /// returns an all-zero buffer on Flutter web's HTML/headless renderers, which
-/// silently fed zxing a black image and was the real cause of "scan failed" on
-/// web. The browser does the JPEG decode + downscale (fast, no isolate needed),
-/// then zxing runs over the real RGBA with yields so the mascot keeps ticking.
+/// silently fed zxing a black image. The browser decodes **and** downscales to
+/// 1600 px in one step (its resampler runs off the Dart isolate); we no longer
+/// follow it with a second pure-Dart area-average resize — that was a wasteful,
+/// UI-thread-blocking double downscale.
 ///
 /// Falls back to the pure-Dart pipeline only if the canvas reader is
 /// unavailable (older browser without `createImageBitmap`/`OffscreenCanvas`).
 Future<List<String>> decodeQrCodesFromImageWeb(Uint8List bytes) async {
-  // Let the browser decode the JPEG (fast) but keep generous resolution — the
-  // dense header QR of a receipt that's small in-frame doesn't survive an
-  // aggressive bilinear downscale. The final downscale to 1600 px is done here
-  // with `img`'s area-averaging (`_clamp`), which preserves QR module edges far
-  // better than the browser's resampler and matches the proven sync path.
-  final px = await decodeImagePixelsWeb(bytes, maxEdge: 2600);
+  final px = await decodeImagePixelsWeb(bytes, maxEdge: 1600);
   if (px == null) {
     if (kDebugMode) {
       debugPrint('[einvoice] web canvas pixels unavailable → pure-Dart');
     }
     return decodeQrCodesFromImage(bytes);
   }
-  var image = img.Image.fromBytes(
+  final image = img.Image.fromBytes(
     width: px.width,
     height: px.height,
     bytes: px.rgba.buffer,
     numChannels: 4,
     order: img.ChannelOrder.rgba,
   );
-  // The area-averaging downscale is a single heavy synchronous call (no isolate
-  // on web), so paint a mascot frame either side of it instead of letting it run
-  // back-to-back with the first zxing pass as one long UI-thread freeze.
-  await _yieldFrame();
-  image = _clamp(image, longestEdge: 1600);
   await _yieldFrame();
   return _scanRegionsAsync(image);
 }
@@ -269,8 +264,7 @@ final _einvoiceHeadRe = RegExp(r'^[A-Z]{2}\d{8}');
 /// makes zxing decode the Big5 bytes into U+FFFD (the bytes are then lost in
 /// [Result.text]). The QR is a single byte-mode segment though, so its raw
 /// pre-charset bytes survive in `byteSegments`: when that segment reconstructs a
-/// recognisable e-invoice we re-decode it ourselves (UTF-8, else Big5). ASCII —
-/// the whole header and every delimiter/number — is invariant under both.
+/// recognisable e-invoice we re-decode it ourselves via [recoverEinvoiceText].
 String _recoverText(Result result) {
   final segs = result.resultMetadata[ResultMetadataType.byteSegments];
   if (segs is List<Int8List> && segs.length == 1) {
@@ -279,17 +273,32 @@ String _recoverText(Result result) {
     for (var i = 0; i < src.length; i++) {
       bytes[i] = src[i] & 0xff;
     }
-    // Only trust this as the *whole* payload when it looks like an e-invoice —
-    // otherwise it might be one byte-run inside a mixed-mode QR and we'd drop
-    // the rest. (Latin-1 is a lossless byte→char view for this check.)
-    final probe = latin1.decode(bytes);
-    if (probe.startsWith('**') || _einvoiceHeadRe.hasMatch(probe)) {
-      try {
-        return utf8.decode(bytes); // throws on non-UTF-8 (e.g. Big5)
-      } catch (_) {
-        return _big5Lenient.decode(bytes);
-      }
-    }
+    final recovered = recoverEinvoiceText(bytes);
+    if (recovered != null) return recovered;
   }
   return result.text;
+}
+
+/// Re-decodes a QR's raw byte-mode segment [bytes] into the correct e-invoice
+/// text, picking UTF-8 then Big5. ASCII — the whole header and every
+/// delimiter/number — is invariant under both, so this never corrupts a header.
+///
+/// Returns null when [bytes] don't look like an e-invoice payload: only then is
+/// it safe to trust them as the *whole* payload (otherwise they might be one
+/// byte-run inside a mixed-mode QR and we'd drop the rest). Callers keep the
+/// decoder's own text in that case. (Latin-1 is a lossless byte→char view for
+/// the probe.)
+///
+/// Shared by the zxing2 path ([_recoverText]) and the web worker client, which
+/// applies it to the raw `bytes` zxing-wasm returns per symbol.
+String? recoverEinvoiceText(Uint8List bytes) {
+  final probe = latin1.decode(bytes);
+  if (probe.startsWith('**') || _einvoiceHeadRe.hasMatch(probe)) {
+    try {
+      return utf8.decode(bytes); // throws on non-UTF-8 (e.g. Big5)
+    } catch (_) {
+      return _big5Lenient.decode(bytes);
+    }
+  }
+  return null;
 }

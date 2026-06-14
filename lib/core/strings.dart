@@ -102,13 +102,17 @@ class AppStrings {
   String get delete          => _zh ? '刪除'           : 'Delete';
   String get unknownMerchant => _zh ? '未知商家'       : 'Unknown';
   String get uncategorized   => _zh ? '未分類'         : 'Uncategorized';
+  String get lookupMerchant  => _zh ? '查詢店名'       : 'Look up name';
+  String merchantFound(String name) => _zh ? '已找到：$name' : 'Found: $name';
+  String get merchantNotFound =>
+      _zh ? '查無此統編的店名' : "Couldn't find a name for this tax ID";
 
   // ── History filters ──────────────────────────────────────────────────────────
   String get filterKindTitle     => _zh ? '類型'       : 'Type';
   String get filterAllKinds      => _zh ? '全部'       : 'All';
   String get filterCategoryLabel => _zh ? '類別'       : 'Category';
   String get filterTimeLabel     => _zh ? '時間'       : 'Time';
-  String get matchByInvoice      => _zh ? '依整筆'     : 'By invoice';
+  String get matchByInvoice      => _zh ? '依發票'     : 'By invoice';
   String get matchByItem         => _zh ? '依品項'     : 'By item';
   String get timeAll             => _zh ? '全部時間'   : 'All time';
   String get timeThisMonth       => _zh ? '本月'       : 'This month';
@@ -138,20 +142,11 @@ class AppStrings {
 
   // ── Scan (e-invoice QR) ──────────────────────────────────────────────────────
   String get scanStart        => _zh ? '開始掃描' : 'Scan';
-  String get scanPickPhoto    => _zh ? '從相簿選擇' : 'Pick a photo';
-  String get scanInvoiceNoLabel => _zh ? '發票號碼' : 'Invoice no.';
+  String get scanChooseTitle  => _zh ? '掃描電子發票' : 'Scan an e-invoice';
+  String get scanOpenCamera   => _zh ? '開啟相機' : 'Open camera';
+  String get scanPickFromFolder => _zh ? '從檔案選擇' : 'Pick from folder';
   String get scanning         => _zh ? '掃描中…' : 'Scanning…';
   String get scanReading      => _zh ? '讀取中…' : 'Reading…';
-  String get scanFailed       => _zh
-      ? '讀取失敗，請對準發票上的 QR 再試一次。'
-      : 'Couldn\'t read the QR — line it up and try again.';
-  String get scanLookingUp    => _zh ? '查詢店家名稱中…' : 'Looking up store…';
-  String get scanAlreadyAdded => _zh ? '此發票已加入過' : 'This invoice is already added';
-  String get scanReviewTitle  => _zh ? '確認發票' : 'Confirm invoice';
-  String get scanSaved        => _zh ? '已新增發票' : 'Invoice added';
-  String get scanNoItemsNote  => _zh
-      ? '此發票未含品項明細，將以總額記錄。'
-      : 'No itemized details in this QR — recorded as the total.';
   String get scanCameraDenied => _zh ? '需要相機權限才能掃描。' : 'Camera access is needed to scan.';
   String get scanCameraUnsupported => _zh
       ? '此瀏覽器或裝置無法開啟相機（網頁需在 https 或 localhost 才能使用相機）。'
@@ -161,6 +156,17 @@ class AppStrings {
   String get scanCapture      => _zh ? '拍照辨識' : 'Capture';
   String get scanRetry        => _zh ? '重試' : 'Try again';
   String scanSaveFailed(Object e) => _zh ? '儲存失敗：$e' : 'Save failed: $e';
+  String get scanAdded        => _zh ? '已加入' : 'Added';
+
+  // ── Background scan queue (progress overlay) ─────────────────────────────────
+  String queueTitle(int n) => _zh
+      ? '處理 $n 張發票…'
+      : 'Adding $n receipt${n == 1 ? '' : 's'}…';
+  String get queueAllDone   => _zh ? '全部完成' : 'All done';
+  String get queueDuplicate => _zh ? '已存在' : 'Already added';
+  String get queueFailed    => _zh ? '讀取失敗' : "Couldn't read";
+  String get queueMinimize  => _zh ? '縮小' : 'Minimize';
+  String get queueDismiss   => _zh ? '清除' : 'Dismiss';
 
   // ── Manual entry ───────────────────────────────────────────────────────────
   String get addInvoice        => _zh ? '新增帳目'         : 'Add invoice';

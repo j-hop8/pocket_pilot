@@ -1,32 +1,23 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 /// An iPhone-camera-style strip of the most recent photos, pinned to the corner
-/// of the scanner. Tapping a thumbnail hands a downsized JPEG to [onBytes]
-/// (decoded by the panel like any picked photo); a trailing button opens the
-/// full system picker.
+/// of the scanner. Tapping a thumbnail hands a downsized JPEG to [onImages]
+/// (queued for background decode like any picked photo) — a quick one-tap for a
+/// receipt you just photographed. Browsing the full library lives on the scan
+/// chooser's "pick from folder", so the strip doesn't repeat it.
 ///
 /// On web — or when photo-library access is denied — there are no thumbnails, so
-/// it degrades to just the picker button (which uses `file_picker`, the path
-/// that already works everywhere).
-///
-/// [onPickStart] fires *synchronously* the moment a **recent-photo thumbnail**
-/// is tapped, before its bytes load — the panel uses it to flash up the
-/// "analyzing…" mascot immediately instead of waiting for the (~hundreds-of-ms)
-/// thumbnail load. It is deliberately *not* fired for the system folder picker,
-/// whose OS panel takes over the screen until the user has chosen a file.
+/// the strip renders nothing.
 class RecentPhotosStrip extends StatefulWidget {
-  final ValueChanged<Uint8List> onBytes;
-  final VoidCallback? onPickStart;
-  final String galleryTooltip;
+  /// Receives the single image picked by a thumbnail tap. The panel enqueues it
+  /// on the background queue.
+  final ValueChanged<List<Uint8List>> onImages;
 
   const RecentPhotosStrip({
     super.key,
-    required this.onBytes,
-    required this.galleryTooltip,
-    this.onPickStart,
+    required this.onImages,
   });
 
   @override
@@ -67,7 +58,6 @@ class _RecentPhotosStripState extends State<RecentPhotosStrip> {
   Future<void> _pickFromAsset(AssetEntity asset) async {
     if (_busy) return;
     _busy = true;
-    widget.onPickStart?.call();
     try {
       // 640 px is the smallest size that still reliably decodes a typical
       // receipt photograph: even with the dual QRs occupying just the lower
@@ -80,26 +70,7 @@ class _RecentPhotosStripState extends State<RecentPhotosStrip> {
         const ThumbnailSize.square(640),
         quality: 75,
       );
-      if (bytes != null) widget.onBytes(bytes);
-    } finally {
-      _busy = false;
-    }
-  }
-
-  Future<void> _pickFromSystem() async {
-    if (_busy) return;
-    _busy = true;
-    // NOTE: unlike the recent-photo thumbnails, we do *not* fire `onPickStart`
-    // here — the OS folder picker owns the screen next, and flashing the reading
-    // mascot behind it looks like the app is busy when it's really just waiting
-    // on the user. The panel flips to the mascot in `_onPickedBytes`, the
-    // instant bytes come back and real decoding starts.
-    try {
-      // withData so bytes are populated on every platform (web has no `path`).
-      final result = await FilePicker.platform
-          .pickFiles(type: FileType.image, withData: true);
-      final bytes = result?.files.single.bytes;
-      if (bytes != null) widget.onBytes(bytes);
+      if (bytes != null) widget.onImages([bytes]);
     } finally {
       _busy = false;
     }
@@ -107,6 +78,8 @@ class _RecentPhotosStripState extends State<RecentPhotosStrip> {
 
   @override
   Widget build(BuildContext context) {
+    // No recent thumbnails (web, denied access, or empty library) → no strip.
+    if (_assets.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -116,11 +89,14 @@ class _RecentPhotosStripState extends State<RecentPhotosStrip> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final asset in _assets) ...[
-            _Thumb(asset: asset, size: _thumbSize, onTap: () => _pickFromAsset(asset)),
-            const SizedBox(width: 6),
+          for (var i = 0; i < _assets.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            _Thumb(
+              asset: _assets[i],
+              size: _thumbSize,
+              onTap: () => _pickFromAsset(_assets[i]),
+            ),
           ],
-          _GalleryButton(size: _thumbSize, tooltip: widget.galleryTooltip, onTap: _pickFromSystem),
         ],
       ),
     );
@@ -159,30 +135,3 @@ class _Thumb extends StatelessWidget {
   }
 }
 
-class _GalleryButton extends StatelessWidget {
-  final double size;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _GalleryButton({required this.size, required this.tooltip, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-          ),
-          child: const Icon(Icons.photo_library_outlined, color: Colors.white, size: 22),
-        ),
-      ),
-    );
-  }
-}

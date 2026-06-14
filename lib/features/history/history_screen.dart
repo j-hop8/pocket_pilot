@@ -859,9 +859,11 @@ class _TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cat      = invoice.categoryId == null ? null : catMap[invoice.categoryId];
     final style    = styleForCategory(cat);
-    final merchant = invoice.merchantName?.isNotEmpty == true
-        ? invoice.merchantName!
-        : s.unknownMerchant;
+    final hasMerchant = invoice.merchantName?.isNotEmpty == true;
+    final merchant = hasMerchant ? invoice.merchantName! : s.unknownMerchant;
+    // The QR carries no merchant name; if the scan-time tax-id lookup came back
+    // empty the user can retry it here.
+    final canLookup = !hasMerchant && (invoice.sellerTaxId?.isNotEmpty ?? false);
 
     return GestureDetector(
       onTap: onTap,
@@ -911,6 +913,7 @@ class _TransactionTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (canLookup) _RefetchMerchantButton(invoice: invoice, s: s),
             const SizedBox(width: 8),
             Text(
               '${invoice.isIncome ? '+' : '−'}${invoice.totalAmount ~/ 100}',
@@ -923,6 +926,82 @@ class _TransactionTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Retries the seller-tax-id → merchant-name lookup for a row whose name is
+/// still blank, writes the result back, and refreshes History. Self-contained
+/// (own loading state) so it can sit inside the stateless [_TransactionTile];
+/// its own tap is consumed here, so it doesn't open the invoice detail.
+class _RefetchMerchantButton extends ConsumerStatefulWidget {
+  final Invoice invoice;
+  final AppStrings s;
+
+  const _RefetchMerchantButton({required this.invoice, required this.s});
+
+  @override
+  ConsumerState<_RefetchMerchantButton> createState() =>
+      _RefetchMerchantButtonState();
+}
+
+class _RefetchMerchantButtonState
+    extends ConsumerState<_RefetchMerchantButton> {
+  bool _loading = false;
+
+  Future<void> _lookup() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final s = widget.s;
+    final messenger = ScaffoldMessenger.of(context);
+
+    String? name;
+    try {
+      name = await ref
+          .read(merchantLookupServiceProvider)
+          .nameForTaxId(widget.invoice.sellerTaxId);
+      if (name != null && name.isNotEmpty) {
+        await ref
+            .read(invoiceRepositoryProvider)
+            .updateMerchantName(widget.invoice.id!, name);
+        ref.invalidate(invoiceListProvider);
+      }
+    } catch (_) {
+      name = null;
+    }
+
+    if (mounted) setState(() => _loading = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text(
+        (name != null && name.isNotEmpty)
+            ? s.merchantFound(name)
+            : s.merchantNotFound,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: PocketColors.persimmon,
+          ),
+        ),
+      );
+    }
+    return IconButton(
+      tooltip: widget.s.lookupMerchant,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      icon: const Icon(Icons.refresh, size: 18, color: PocketColors.inkSoft),
+      onPressed: _lookup,
     );
   }
 }
