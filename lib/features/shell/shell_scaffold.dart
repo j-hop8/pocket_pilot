@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/providers.dart';
 import '../../core/settings_provider.dart';
 import '../../core/theme.dart';
 import '../capture/capture_screen.dart';
@@ -56,7 +57,11 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
           const Divider(height: 1, color: PocketColors.line),
           NavigationBar(
             selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
+            onDestinationSelected: (i) {
+              setState(() => _index = i);
+              // Publish so the e-invoice scanner can auto-start/stop its camera.
+              ref.read(bottomTabIndexProvider.notifier).set(i);
+            },
             destinations: [
               NavigationDestination(
                 icon: const Icon(Icons.home_outlined),

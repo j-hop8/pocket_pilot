@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
@@ -12,32 +14,44 @@ import '../core/theme.dart';
 class _Eye extends StatelessWidget {
   final bool lookAway; // offset pupil diagonally
   final double parentSize;
+  final double openness; // 1 = open, → 0 = blinking shut (vertical squash)
+  final Offset pupilShift; // extra pupil offset, as a fraction of the eye size
 
-  const _Eye({this.lookAway = false, required this.parentSize});
+  const _Eye({
+    this.lookAway = false,
+    required this.parentSize,
+    this.openness = 1,
+    this.pupilShift = Offset.zero,
+  });
 
   double get _eyeSize  => parentSize * 0.219; // ~21/96
   double get _pupilSize => _eyeSize * 0.381;  // ~8/21
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: _eyeSize,
-      height: _eyeSize,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Transform.translate(
-          offset: lookAway
-              ? Offset(_eyeSize * 0.095, _eyeSize * 0.095)
-              : Offset.zero,
-          child: Container(
-            width: _pupilSize,
-            height: _pupilSize,
-            decoration: const BoxDecoration(
-              color: PocketColors.ink,
-              shape: BoxShape.circle,
+    final base = lookAway
+        ? Offset(_eyeSize * 0.095, _eyeSize * 0.095)
+        : Offset.zero;
+    final offset = base + Offset(pupilShift.dx * _eyeSize, pupilShift.dy * _eyeSize);
+    return Transform.scale(
+      scaleY: openness.clamp(0.06, 1.0),
+      child: Container(
+        width: _eyeSize,
+        height: _eyeSize,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Transform.translate(
+            offset: offset,
+            child: Container(
+              width: _pupilSize,
+              height: _pupilSize,
+              decoration: const BoxDecoration(
+                color: PocketColors.ink,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
         ),
@@ -235,6 +249,114 @@ class QRMascot extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ScanningMascot — QR mascot whose eyes blink and glance around while the app
+// processes a freshly-captured invoice (the "thinking" state behind the camera).
+// ---------------------------------------------------------------------------
+
+class ScanningMascot extends StatefulWidget {
+  final double size;
+  const ScanningMascot({super.key, this.size = 96});
+
+  @override
+  State<ScanningMascot> createState() => _ScanningMascotState();
+}
+
+class _ScanningMascotState extends State<ScanningMascot>
+    with SingleTickerProviderStateMixin {
+  // 1 s cycle so any visible glance catches at least one full pulse + blink.
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))
+        ..repeat();
+
+  // Three blink windows per cycle ≈ a blink every ~330 ms. Visible at a glance.
+  double _openness(double t) {
+    const w = 0.07; // each blink ~70 ms wide
+    for (final start in const [0.20, 0.55, 0.90]) {
+      if (t >= start && t < start + w) {
+        final k = (t - start) / w;
+        return 1.0 - math.sin(k * math.pi);
+      }
+    }
+    return 1.0;
+  }
+
+  // Pupils sweep almost edge-to-edge of the eye — guaranteed visible.
+  Offset _shift(double t) {
+    final a = t * 2 * math.pi;
+    return Offset(0.65 * math.cos(a), 0.40 * math.sin(a * 2));
+  }
+
+  // ±10 % body breathing — at 112 px that's ±11 px of size change, impossible
+  // to miss even if pupil motion or blinks somehow fail to register.
+  double _breathe(double t) {
+    final a = t * 2 * math.pi;
+    return 0.90 + 0.10 * math.sin(a);
+  }
+
+  // ±0.08 rad ≈ ±4.6° wobble — a sideways head-tilt that reads as "thinking".
+  double _wobble(double t) {
+    final a = t * 2 * math.pi;
+    return 0.08 * math.sin(a);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = _c.value;
+        final open = _openness(t);
+        final shift = _shift(t);
+        final scale = _breathe(t);
+        final wobble = _wobble(t);
+        return Transform.rotate(
+          angle: wobble,
+          child: Transform.scale(
+            scale: scale,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      // Persimmon over the reading overlay's solid black
+                      // background — the QRMascot's `ink` body was invisible
+                      // there. Now the silhouette and its motion both register.
+                      color: PocketColors.persimmon,
+                      borderRadius: BorderRadius.circular(size * 0.196),
+                    ),
+                  ),
+                  Positioned(
+                    top: size * 0.359,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Eye(parentSize: size, openness: open, pupilShift: shift),
+                        SizedBox(width: size * 0.076),
+                        _Eye(parentSize: size, openness: open, pupilShift: shift),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

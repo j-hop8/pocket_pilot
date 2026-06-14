@@ -4,6 +4,8 @@ import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
 import '../features/carrier_sync/carrier_sync_service.dart';
+import '../features/scan/einvoice_qr_service.dart';
+import '../features/scan/merchant_lookup_service.dart';
 import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
@@ -27,6 +29,16 @@ final carrierSyncServiceProvider = Provider<CarrierSyncService>((ref) {
     ref.watch(invoiceRepositoryProvider),
     ref.watch(carrierRepositoryProvider),
   );
+});
+
+/// Ingests a single scanned e-invoice QR (parse → categorize → dedup → store).
+final einvoiceQrServiceProvider = Provider<EinvoiceQrService>((ref) {
+  return EinvoiceQrService(ref.watch(invoiceRepositoryProvider));
+});
+
+/// Resolves a seller tax id to a merchant name (best-effort, cached).
+final merchantLookupServiceProvider = Provider<MerchantLookupService>((ref) {
+  return MerchantLookupService();
 });
 
 /// All invoices (newest first), with line items joined.
@@ -60,6 +72,20 @@ final categoriesByIdProvider = FutureProvider<Map<int, Category>>((ref) async {
   final list = await ref.watch(categoriesProvider.future);
   return {for (final c in list) c.id: c};
 });
+
+/// The selected bottom-nav tab index, published by [ShellScaffold] so tab-aware
+/// widgets can react to becoming active. The e-invoice scanner watches this to
+/// turn the camera on only while the Add tab is showing (iPhone-camera style)
+/// and release it the moment the user leaves.
+class BottomTabIndex extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void set(int index) => state = index;
+}
+
+final bottomTabIndexProvider =
+    NotifierProvider<BottomTabIndex, int>(BottomTabIndex.new);
 
 /// The month currently shown on the dashboard (first day of month).
 class SelectedMonth extends Notifier<DateTime> {

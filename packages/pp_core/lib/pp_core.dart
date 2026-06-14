@@ -6,4 +6,5 @@ library;
 
 export 'src/categorizer.dart';
 export 'src/einvoice_csv_parser.dart';
+export 'src/einvoice_qr_parser.dart';
 export 'src/money.dart';

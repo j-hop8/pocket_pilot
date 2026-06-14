@@ -136,6 +136,32 @@ class AppStrings {
   String get manualPanelHint  =>
       _zh ? '直接填寫發票資料並送出' : 'Type in the invoice details and submit';
 
+  // ── Scan (e-invoice QR) ──────────────────────────────────────────────────────
+  String get scanStart        => _zh ? '開始掃描' : 'Scan';
+  String get scanPickPhoto    => _zh ? '從相簿選擇' : 'Pick a photo';
+  String get scanInvoiceNoLabel => _zh ? '發票號碼' : 'Invoice no.';
+  String get scanning         => _zh ? '掃描中…' : 'Scanning…';
+  String get scanReading      => _zh ? '讀取中…' : 'Reading…';
+  String get scanFailed       => _zh
+      ? '讀取失敗，請對準發票上的 QR 再試一次。'
+      : 'Couldn\'t read the QR — line it up and try again.';
+  String get scanLookingUp    => _zh ? '查詢店家名稱中…' : 'Looking up store…';
+  String get scanAlreadyAdded => _zh ? '此發票已加入過' : 'This invoice is already added';
+  String get scanReviewTitle  => _zh ? '確認發票' : 'Confirm invoice';
+  String get scanSaved        => _zh ? '已新增發票' : 'Invoice added';
+  String get scanNoItemsNote  => _zh
+      ? '此發票未含品項明細，將以總額記錄。'
+      : 'No itemized details in this QR — recorded as the total.';
+  String get scanCameraDenied => _zh ? '需要相機權限才能掃描。' : 'Camera access is needed to scan.';
+  String get scanCameraUnsupported => _zh
+      ? '此瀏覽器或裝置無法開啟相機（網頁需在 https 或 localhost 才能使用相機）。'
+      : "This browser or device can't open the camera (the web needs https or localhost for camera access).";
+  String get scanCameraError  => _zh ? '無法開啟相機。' : "Couldn't open the camera.";
+  String get scanCameraOpening => _zh ? '正在開啟相機…' : 'Opening camera…';
+  String get scanCapture      => _zh ? '拍照辨識' : 'Capture';
+  String get scanRetry        => _zh ? '重試' : 'Try again';
+  String scanSaveFailed(Object e) => _zh ? '儲存失敗：$e' : 'Save failed: $e';
+
   // ── Manual entry ───────────────────────────────────────────────────────────
   String get addInvoice        => _zh ? '新增帳目'         : 'Add invoice';
   String get editInvoice       => _zh ? '編輯帳目'         : 'Edit invoice';

@@ -50,6 +50,17 @@ dependencies:
   google_sign_in: ^7.1.0
   # Web implementation; imported directly for its GIS `renderButton` (web_only.dart).
   google_sign_in_web: ^1.1.0
+  mobile_scanner: ^7.2.0
+  zxing2: ^0.2.4
+  image: ^4.8.0
+  # Pure-Dart Big5 decoder for e-invoice item names: many Taiwan POS systems
+  # emit Big5 names (sometimes mis-flagged as UTF-8), which zxing2 can't decode.
+  enough_convert: ^1.6.0
+  # Recent-photos thumbnail strip on the scanner (iPhone-style); web falls back
+  # to the system picker (file_picker).
+  photo_manager: ^3.0.0
+  # Direct use of browser APIs (getUserMedia / canvas) in the web scan capture.
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

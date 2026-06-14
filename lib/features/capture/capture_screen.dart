@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/providers.dart';
 import '../../core/settings_provider.dart';
+import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../widgets/mascots.dart';
+import '../scan/einvoice_scan_panel.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
@@ -25,7 +28,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
-    final isManual = _sourceIndex == 0;
+    // The scanner's camera should only run while the Add tab is the one showing.
+    final onAddTab = ref.watch(bottomTabIndexProvider) == 1;
 
     return Column(
       children: [
@@ -34,28 +38,26 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
           labels: [s.tabManual, s.tabEInvoice, s.tabReceipt],
           onSelect: (i) => setState(() => _sourceIndex = i),
         ),
-        if (isManual)
-          Expanded(
-            child: _ManualPanel(
-              title: s.manualPanelTitle,
-              hint: s.manualPanelHint,
-              addLabel: s.addInvoice,
-              onAdd: () => context.push('/add'),
-            ),
-          )
-        else
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-              child: _Viewfinder(
-                mascot: _mascot,
-                hint: s.hintFor(_sourceIndex),
-              ),
-            ),
-          ),
+        Expanded(child: _body(s, onAddTab)),
       ],
     );
   }
+
+  Widget _body(AppStrings s, bool onAddTab) => switch (_sourceIndex) {
+        0 => _ManualPanel(
+            title: s.manualPanelTitle,
+            hint: s.manualPanelHint,
+            addLabel: s.addInvoice,
+            onAdd: () => context.push('/add'),
+          ),
+        // Active only when the e-invoice sub-tab is selected AND the Add tab shows.
+        1 => EInvoiceScanPanel(active: onAddTab && _sourceIndex == 1),
+        // Receipt OCR is still a placeholder viewfinder.
+        _ => Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+            child: _Viewfinder(mascot: _mascot, hint: s.hintFor(_sourceIndex)),
+          ),
+      };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

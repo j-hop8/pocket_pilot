@@ -41,6 +41,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>掃描電子發票上的 QR Code 以自動建立帳目。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>從相簿選擇電子發票照片來辨識 QR Code。</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
