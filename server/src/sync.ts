@@ -5,6 +5,9 @@
 import { admin } from "./supabase";
 import { config } from "./config";
 import { ingestCsv, type SyncResult } from "./lib/ingest";
+import { describeError } from "./lib/resilient-fetch";
+import { createGapThrottle } from "./lib/portal-throttle";
+import { computeSyncRange } from "./lib/sync-range";
 import { downloadCarrierCsv } from "./scrape";
 import { TesseractOcr } from "./ocr/tesseract";
 import type { OcrService } from "./ocr";
@@ -12,12 +15,15 @@ import type { OcrService } from "./ocr";
 // One OCR engine shared across all syncs (the Tesseract worker is reused).
 export const ocr: OcrService = new TesseractOcr();
 
+// Process-wide throttle so concurrent syncs don't hit the gov portal at once.
+const acquirePortalSlot = createGapThrottle(config.portalMinGapMs);
+
 export async function runSync(userId: string): Promise<SyncResult> {
   await setStatus(userId, "running", null);
   try {
     const { data: cfg, error } = await admin
       .from("carrier_config")
-      .select("phone")
+      .select("phone, last_synced_at")
       .eq("user_id", userId)
       .single();
     if (error) throw error;
@@ -31,13 +37,30 @@ export async function runSync(userId: string): Promise<SyncResult> {
       throw new Error("carrier credentials are not set");
     }
 
+    // Fetch only what's new since the last successful sync (minus an overlap),
+    // not the portal's whole-current-month default.
+    const lastSyncedAt = cfg?.last_synced_at
+      ? new Date(cfg.last_synced_at as string)
+      : null;
+    const dateRange = computeSyncRange(lastSyncedAt, new Date(), {
+      overlapDays: config.syncOverlapDays,
+      lookbackDays: config.syncLookbackDays,
+    });
+
+    const log = (m: string) => console.log(`[sync ${short(userId)}] ${m}`);
+    const waitStart = Date.now();
+    await acquirePortalSlot();
+    const waited = Date.now() - waitStart;
+    if (waited > 100) log(`waited ${waited}ms for portal slot`);
+
     const csv = await downloadCarrierCsv(
       { phone, password: password as string },
       {
         ocr,
         headless: config.headless,
         proxyUrl: config.proxyUrl,
-        log: (m) => console.log(`[sync ${short(userId)}] ${m}`),
+        dateRange,
+        log,
       },
     );
     const result = await ingestCsv(admin, userId, csv);
@@ -57,7 +80,11 @@ export async function runSync(userId: string): Promise<SyncResult> {
 
     return result;
   } catch (e) {
-    await setStatus(userId, "error", (e as Error).message);
+    // Log the full error (with its undici cause) for the worker logs, and
+    // persist a cause-aware message so the UI shows *why*, not just
+    // "fetch failed".
+    console.error(`[sync ${short(userId)}] failed:`, e);
+    await setStatus(userId, "error", describeError(e));
     throw e;
   }
 }

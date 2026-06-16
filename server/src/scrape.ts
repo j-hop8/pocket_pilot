@@ -12,6 +12,7 @@ import type { Page } from "playwright";
 import { promises as fs } from "fs";
 import * as path from "path";
 import type { OcrService } from "./ocr";
+import { monthDelta, type CivilDate, type SyncRange } from "./lib/sync-range";
 
 // Register the stealth evasions once (patches navigator.webdriver, headless
 // markers, WebGL/permissions, etc.) to help clear Cloudflare Turnstile.
@@ -30,6 +31,9 @@ export interface ScrapeOptions {
   /// Optional residential/TW proxy, used only if Cloudflare blocks the host IP.
   proxyUrl?: string;
   log?: (msg: string) => void;
+  /// Restrict the 消費明細 query to this day range (incremental sync). Omitted →
+  /// the portal's pre-filled current-month range is used.
+  dateRange?: SyncRange;
   /// When set, screenshots + CAPTCHA samples + a failure DOM dump are written
   /// here (used by the spike to de-risk; off in production).
   debugDir?: string;
@@ -77,7 +81,7 @@ export async function downloadCarrierCsv(
     );
     const page = await context.newPage();
     await login(page, creds, opts.ocr, log, opts.debugDir);
-    return await downloadDetailCsv(page, log);
+    return await downloadDetailCsv(page, log, opts.dateRange, opts.debugDir);
   } finally {
     await browser.close();
   }
@@ -234,12 +238,23 @@ async function readPortalError(page: Page): Promise<string> {
 async function downloadDetailCsv(
   page: Page,
   log: (msg: string) => void,
+  dateRange?: SyncRange,
+  debugDir?: string,
 ): Promise<string> {
-  // Run the query with the pre-filled (current-month) date range. The date field
-  // is a readonly vue-datepicker; current month is good enough for a recurring
-  // sync and dedupe makes overlapping ranges safe.
+  // The date field is a @vuepic/vue-datepicker. Narrow the query to the
+  // incremental [from→to] range; if that fails for any reason, fall back to the
+  // portal's pre-filled current-month range (dedupe makes a wider range safe —
+  // it just fetches more).
   await page.goto(SEARCH_URL, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForSelector("#dp-input-searchInvoiceDate", { timeout: 20000 });
+
+  if (dateRange) {
+    try {
+      await selectDateRange(page, dateRange, log, debugDir);
+    } catch (e) {
+      log(`date-range select failed (${(e as Error).message}); using current-month default`);
+    }
+  }
 
   const searched = await page.evaluate(() => {
     const btn = document.querySelector(
@@ -295,6 +310,113 @@ async function downloadDetailCsv(
 
   if (!pageCsvs.length) throw new Error("No CSV pages were downloaded");
   return concatCsvPages(pageCsvs);
+}
+
+// ── Date range (vue-datepicker) ──────────────────────────────────────────────
+// NOTE: selectors are @vuepic/vue-datepicker defaults — confirm against the live
+// portal via `npm run spike` (it dumps the open menu). Navigation pages by arrow
+// clicks from the current month (where the picker opens), so we never parse the
+// header, which the portal renders in ROC/民國 years.
+
+const DATE_INPUT_SEL = "#dp-input-searchInvoiceDate";
+
+async function selectDateRange(
+  page: Page,
+  range: SyncRange,
+  log: (msg: string) => void,
+  debugDir?: string,
+): Promise<void> {
+  const before = await readDateInput(page);
+
+  await page.locator(DATE_INPUT_SEL).first().click();
+  await page.waitForSelector(".dp__menu, .dp__outer_menu_wrap", { timeout: 8000 });
+  // Spike-only: capture the open menu so we can confirm the selectors below.
+  if (debugDir) await dumpDatepicker(page, debugDir);
+
+  // The picker opens on the current month (= range.to's month). Page back to the
+  // start month, click the start day, then forward to the end month + day.
+  const months = monthDelta(range.from, range.to);
+  await navigateMonths(page, -months);
+  await clickDay(page, range.from.day);
+  await navigateMonths(page, months);
+  await clickDay(page, range.to.day);
+
+  // Auto-apply configs close on the 2nd click; otherwise confirm (確定/Select).
+  await clickSelectIfPresent(page);
+
+  const after = await readDateInput(page);
+  if (!after || after === before) throw new Error("date input unchanged");
+  log(`date range ${fmtCivil(range.from)} → ${fmtCivil(range.to)} (input="${after}")`);
+}
+
+async function navigateMonths(page: Page, n: number): Promise<void> {
+  const dir = n < 0 ? "prev" : "next";
+  for (let i = 0; i < Math.abs(n); i++) {
+    const moved = await page.evaluate((d) => {
+      const navs = Array.from(
+        document.querySelectorAll(".dp__inner_nav"),
+      ) as HTMLElement[];
+      if (navs.length < 2) return false;
+      (d === "prev" ? navs[0] : navs[navs.length - 1]).click();
+      return true;
+    }, dir);
+    if (!moved) throw new Error("month-nav arrows not found");
+    await page.waitForTimeout(150);
+  }
+}
+
+async function clickDay(page: Page, day: number): Promise<void> {
+  const ok = await page.evaluate((d) => {
+    const cells = Array.from(
+      document.querySelectorAll(".dp__cell_inner"),
+    ) as HTMLElement[];
+    for (const c of cells) {
+      const offset =
+        c.classList.contains("dp__cell_offset") ||
+        c.parentElement?.classList.contains("dp__cell_offset");
+      if (offset || c.classList.contains("dp__cell_disabled")) continue;
+      if ((c.textContent || "").trim() === String(d)) {
+        c.click();
+        return true;
+      }
+    }
+    return false;
+  }, day);
+  if (!ok) throw new Error(`day cell ${day} not selectable`);
+  await page.waitForTimeout(150);
+}
+
+async function clickSelectIfPresent(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const btn = document.querySelector(".dp__action_select") as HTMLButtonElement | null;
+    if (btn && !btn.disabled) btn.click();
+  });
+  await page.waitForTimeout(150);
+}
+
+async function readDateInput(page: Page): Promise<string> {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel) as HTMLInputElement | null;
+    return el ? el.value || el.getAttribute("value") || "" : "";
+  }, DATE_INPUT_SEL);
+}
+
+function fmtCivil(c: CivilDate): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${c.year}-${pad(c.month)}-${pad(c.day)}`;
+}
+
+async function dumpDatepicker(page: Page, dir: string): Promise<void> {
+  try {
+    const html = await page.evaluate(() => {
+      const menu = document.querySelector(".dp__menu, .dp__outer_menu_wrap");
+      return menu ? menu.outerHTML : document.body.innerHTML;
+    });
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "datepicker.html"), html);
+  } catch {
+    /* best-effort */
+  }
 }
 
 async function maximizePageSize(page: Page): Promise<void> {
