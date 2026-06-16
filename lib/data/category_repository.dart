@@ -7,10 +7,17 @@ class CategoryRepository {
   /// All of the signed-in user's categories. On first use (a brand-new account
   /// with no rows) the default set is seeded, then re-read.
   Future<List<Category>> list() async {
-    var rows = await supabase.from('categories').select().order('id');
+    // ascending: the postgrest-dart `order` defaults to DESC, which would list
+    // categories newest-id first (income before expense, seed order reversed).
+    // Ascending keeps the seed order: expense categories first, then income.
+    var rows =
+        await supabase.from('categories').select().order('id', ascending: true);
     if (rows.isEmpty) {
       await _seedDefaults();
-      rows = await supabase.from('categories').select().order('id');
+      rows = await supabase
+          .from('categories')
+          .select()
+          .order('id', ascending: true);
     }
     return rows.map((r) => Category.fromJson(r)).toList();
   }

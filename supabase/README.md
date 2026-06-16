@@ -44,9 +44,52 @@ server-side secret, add per-user (`auth.uid()`) RLS, and prefer the official MOF
 verification code, run from a Supabase **Edge Function** so the AppID secret
 stays server-side) over storing the portal password.
 
+## Edge Functions
+
+Server-side helpers the app invokes with the user's session JWT (`supabase.functions.invoke`):
+
+| Function | Purpose |
+|---|---|
+| `merchant-lookup` | Resolves an 8-digit 統一編號 to a business name (GCIS/FIA proxy, no CORS in-browser). |
+| `extract-receipt` | Reads a receipt/invoice **photo** with Google Gemini and returns the structured fields the Receipt tab auto-saves (`source='ocr'`). Keeps `GOOGLE_AI_API_KEY` server-side; capped at **30 extractions per user per day**. |
+
+Deploy + configure the receipt scanner:
+
+```sh
+# Get an API key from https://aistudio.google.com/apikey
+supabase secrets set GOOGLE_AI_API_KEY=<your-key>
+supabase functions deploy extract-receipt
+```
+
+On a rate limit / overload (HTTP 429 or 503) the function automatically retries
+the next model in a fallback chain — `gemini-3.1-flash-lite` → `gemma-3-12b-it` →
+`gemma-3-4b-it` → `gemma-3-27b-it` → `gemini-2.5-flash` (see
+`_shared/gemini_receipt.ts`). The `GOOGLE_AI_API_KEY` must have access to these
+models; only after every model is rate-limited does a scan fail.
+
+Because each call hits the paid Gemini API, the function enforces a **per-user
+daily quota** (migration `..._extract_receipt_rate_limit.sql`, both RPCs run
+under the caller's JWT). Before extracting it calls `check_extraction_quota(p_limit)`
+(read-only) and answers **429 `{code:"rate_limited"}`** once the user is at the
+limit — the app then shows "daily scan limit reached". Only *after* a successful
+extraction does it call `record_extraction()`, which bumps an `extraction_usage`
+row keyed by user + Asia/Taipei day; a failed scan (502) spends no slot. The
+limit lives as `DAILY_LIMIT` in the function and the SQL default.
+
+Local run: `supabase functions serve extract-receipt` (reads `GOOGLE_AI_API_KEY` from
+`supabase/.env` / your shell). Smoke test with a base64 image:
+
+```sh
+# Use a signed-in user's access token, not the anon key — the quota counter
+# needs auth.uid(), so the anon key answers 502 "not authenticated".
+curl -s -X POST "$SUPABASE_URL/functions/v1/extract-receipt" \
+  -H "Authorization: Bearer $USER_JWT" -H 'Content-Type: application/json' \
+  -d "{\"image\":\"$(base64 -i receipt.jpg)\"}" | jq
+```
+
 ## App config
 
 The app reads `SUPABASE_URL` and `SUPABASE_ANON_KEY` at build time via
 `--dart-define-from-file=dart_defines.json` (gitignored). See `dart_defines.example.json`
-in the project root. The anon key is publishable; the Gemini key (Phase 3+) is **never**
-in the app — it lives in an Edge Function secret.
+in the project root. The anon key is publishable; the Gemini key is **never** in the
+app — it lives in the `extract-receipt` Edge Function secret (above).

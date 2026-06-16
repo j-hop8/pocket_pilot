@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// Non-web stub. The web capture flow ([WebCameraView]) is only constructed
 /// behind `kIsWeb`, so this is never built on mobile — it exists so the import
@@ -13,6 +13,7 @@ class WebCameraView extends StatelessWidget {
   final String deniedText;
   final String unsupportedText;
   final String retryLabel;
+  final IconData captureIcon;
 
   const WebCameraView({
     super.key,
@@ -23,6 +24,7 @@ class WebCameraView extends StatelessWidget {
     required this.deniedText,
     required this.unsupportedText,
     required this.retryLabel,
+    this.captureIcon = Icons.qr_code_scanner,
   });
 
   @override

@@ -6,6 +6,8 @@ import '../data/invoice_repository.dart';
 import '../features/carrier_sync/carrier_sync_service.dart';
 import '../features/scan/einvoice_qr_service.dart';
 import '../features/scan/merchant_lookup_service.dart';
+import '../features/scan/receipt_extraction_service.dart';
+import '../features/scan/receipt_ocr_service.dart';
 import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
@@ -39,6 +41,18 @@ final einvoiceQrServiceProvider = Provider<EinvoiceQrService>((ref) {
 /// Resolves a seller tax id to a merchant name (best-effort, cached).
 final merchantLookupServiceProvider = Provider<MerchantLookupService>((ref) {
   return MerchantLookupService();
+});
+
+/// Reads a receipt / invoice photo with Gemini (via the extract-receipt Edge
+/// Function) into structured fields.
+final receiptExtractionServiceProvider =
+    Provider<ReceiptExtractionService>((ref) {
+  return ReceiptExtractionService();
+});
+
+/// Ingests an AI-extracted receipt (categorize → dedup → store as `ocr`).
+final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
+  return ReceiptOcrService(ref.watch(invoiceRepositoryProvider));
 });
 
 /// All invoices (newest first), with line items joined.

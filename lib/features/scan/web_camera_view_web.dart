@@ -29,6 +29,10 @@ class WebCameraView extends StatefulWidget {
   final String unsupportedText;
   final String retryLabel;
 
+  /// Glyph on the capture button. Defaults to the QR-scanner icon the e-invoice
+  /// tab wants; the receipt tab passes a plain camera icon.
+  final IconData captureIcon;
+
   const WebCameraView({
     super.key,
     required this.onCapture,
@@ -38,6 +42,7 @@ class WebCameraView extends StatefulWidget {
     required this.deniedText,
     required this.unsupportedText,
     required this.retryLabel,
+    this.captureIcon = Icons.qr_code_scanner,
   });
 
   @override
@@ -197,7 +202,7 @@ class _WebCameraViewState extends State<WebCameraView> {
           child: Center(
             child: FilledButton.icon(
               onPressed: widget.busy ? null : _capture,
-              icon: const Icon(Icons.qr_code_scanner),
+              icon: Icon(widget.captureIcon),
               label: Text(widget.captureLabel),
             ),
           ),
