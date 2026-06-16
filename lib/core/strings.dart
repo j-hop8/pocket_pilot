@@ -158,6 +158,16 @@ class AppStrings {
   String scanSaveFailed(Object e) => _zh ? '儲存失敗：$e' : 'Save failed: $e';
   String get scanAdded        => _zh ? '已加入' : 'Added';
 
+  // ── Scan (receipt OCR) ───────────────────────────────────────────────────────
+  String get scanReceiptChooseTitle => _zh ? '掃描收據' : 'Scan a receipt';
+  String get scanReceiptHint => _zh
+      ? '拍照或從相簿選擇，AI 會自動讀取收據內容記帳'
+      : 'Snap a photo or pick from your library — AI reads it and adds it for you';
+  String get scanTakePhoto => _zh ? '拍照' : 'Take photo';
+  String get scanLimitReached => _zh
+      ? '今天的掃描已達上限（每天 30 次），請明天再試。'
+      : 'Daily scan limit reached (30/day). Try again tomorrow.';
+
   // ── Background scan queue (progress overlay) ─────────────────────────────────
   String queueTitle(int n) => _zh
       ? '處理 $n 張發票…'

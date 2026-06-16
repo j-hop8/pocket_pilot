@@ -9,6 +9,7 @@ import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../widgets/mascots.dart';
 import '../scan/einvoice_scan_panel.dart';
+import '../scan/receipt_scan_panel.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
@@ -19,11 +20,6 @@ class CaptureScreen extends ConsumerStatefulWidget {
 
 class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   int _sourceIndex = 1; // 0 = manual, 1 = e-invoice QR, 2 = receipt
-
-  Widget get _mascot => switch (_sourceIndex) {
-    2 => const ReceiptMascot(size: 80),
-    _ => const QRMascot(size: 80),
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +48,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
           ),
         // Active only when the e-invoice sub-tab is selected AND the Add tab shows.
         1 => EInvoiceScanPanel(active: onAddTab && _sourceIndex == 1),
-        // Receipt OCR is still a placeholder viewfinder.
-        _ => Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-            child: _Viewfinder(mascot: _mascot, hint: s.hintFor(_sourceIndex)),
-          ),
+        // Receipt OCR: photo → Gemini extraction → auto-saved as an editable row.
+        _ => ReceiptScanPanel(active: onAddTab && _sourceIndex == 2),
       };
 }
 
@@ -200,126 +193,5 @@ class _SourceTabs extends StatelessWidget {
   }
 }
 
-class _Viewfinder extends StatelessWidget {
-  final Widget mascot;
-  final String hint;
-
-  const _Viewfinder({required this.mascot, required this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF23211D), Color(0xFF33302A)],
-              ),
-            ),
-          ),
-          const _CornerBracket(corner: _Corner.tl),
-          const _CornerBracket(corner: _Corner.tr),
-          const _CornerBracket(corner: _Corner.bl),
-          const _CornerBracket(corner: _Corner.br),
-          Center(child: mascot),
-          Positioned(
-            bottom: 28,
-            left: 0,
-            right: 0,
-            child: Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xAAFAF5EC),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-enum _Corner { tl, tr, bl, br }
-
-class _CornerBracket extends StatelessWidget {
-  final _Corner corner;
-  const _CornerBracket({required this.corner});
-
-  @override
-  Widget build(BuildContext context) {
-    const pad = 20.0;
-    const size = 28.0;
-    double? top, bottom, left, right;
-    switch (corner) {
-      case _Corner.tl: top    = pad; left  = pad; break;
-      case _Corner.tr: top    = pad; right = pad; break;
-      case _Corner.bl: bottom = pad; left  = pad; break;
-      case _Corner.br: bottom = pad; right = pad; break;
-    }
-    return Positioned(
-      top: top, bottom: bottom, left: left, right: right,
-      child: CustomPaint(
-        size: const Size(size, size),
-        painter: _BracketPainter(corner: corner),
-      ),
-    );
-  }
-}
-
-class _BracketPainter extends CustomPainter {
-  final _Corner corner;
-  const _BracketPainter({required this.corner});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = PocketColors.butter
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    const r = 8.0;
-    final w = size.width;
-    final h = size.height;
-
-    final path = Path();
-    switch (corner) {
-      case _Corner.tl:
-        path
-          ..moveTo(w, 0)
-          ..lineTo(r, 0)
-          ..arcToPoint(Offset(0, r), radius: const Radius.circular(r), clockwise: true)
-          ..lineTo(0, h);
-      case _Corner.tr:
-        path
-          ..moveTo(0, 0)
-          ..lineTo(w - r, 0)
-          ..arcToPoint(Offset(w, r), radius: const Radius.circular(r), clockwise: false)
-          ..lineTo(w, h);
-      case _Corner.bl:
-        path
-          ..moveTo(0, 0)
-          ..lineTo(0, h - r)
-          ..arcToPoint(Offset(r, h), radius: const Radius.circular(r), clockwise: false)
-          ..lineTo(w, h);
-      case _Corner.br:
-        path
-          ..moveTo(w, 0)
-          ..lineTo(w, h - r)
-          ..arcToPoint(Offset(w - r, h), radius: const Radius.circular(r), clockwise: true)
-          ..lineTo(0, h);
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
+// The receipt tab body now lives in `ReceiptScanPanel`; the e-invoice tab brings
+// its own live-camera viewfinder, so this screen no longer needs a static one.

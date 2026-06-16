@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/settings_provider.dart';
@@ -14,6 +13,7 @@ import '../../widgets/mascots.dart';
 import 'recent_photos_strip.dart';
 import 'scan_decoder.dart';
 import 'scan_queue.dart';
+import 'scan_source_chooser.dart';
 import 'web_camera_view.dart';
 
 /// The e-invoice tab body. On entry it shows a chooser with two options —
@@ -220,19 +220,30 @@ class _EInvoiceScanPanelState extends ConsumerState<EInvoiceScanPanel>
     final s = ref.watch(stringsProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: _mode == _ScanMode.chooser
-            ? _ScanChooser(
-                title: s.scanChooseTitle,
-                cameraLabel: s.scanOpenCamera,
-                folderLabel: s.scanPickFromFolder,
-                hint: s.hintFor(1),
-                onCamera: _openCamera,
-                onPickFolder: _pickFromFolder,
-              )
-            : _cameraView(s),
-      ),
+      child: _mode == _ScanMode.chooser
+          ? ScanSourceChooser(
+              mascot: const QRMascot(size: 84),
+              title: s.scanChooseTitle,
+              hint: s.hintFor(1),
+              actions: [
+                ScanChooserButton(
+                  icon: Icons.photo_camera_rounded,
+                  label: s.scanOpenCamera,
+                  filled: true,
+                  onTap: _openCamera,
+                ),
+                ScanChooserButton(
+                  icon: Icons.folder_open_rounded,
+                  label: s.scanPickFromFolder,
+                  filled: false,
+                  onTap: _pickFromFolder,
+                ),
+              ],
+            )
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: _cameraView(s),
+            ),
     );
   }
 
@@ -348,143 +359,6 @@ class _ViewfinderFrame extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// The entry screen for the e-invoice tab: a dark viewfinder-style backdrop with
-/// the QR mascot and the two ways in — open the live camera, or pick image files
-/// from the device. Mirrors the receipt tab's [_Viewfinder] look so the Add tab
-/// feels of a piece.
-class _ScanChooser extends StatelessWidget {
-  final String title;
-  final String cameraLabel;
-  final String folderLabel;
-  final String hint;
-  final VoidCallback onCamera;
-  final VoidCallback onPickFolder;
-
-  const _ScanChooser({
-    required this.title,
-    required this.cameraLabel,
-    required this.folderLabel,
-    required this.hint,
-    required this.onCamera,
-    required this.onPickFolder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF23211D), Color(0xFF33302A)],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const QRMascot(size: 84),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: PocketColors.paper,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.spaceMono(
-                fontSize: 12,
-                color: const Color(0xAAFAF5EC),
-              ),
-            ),
-            const SizedBox(height: 28),
-            _ChooserButton(
-              icon: Icons.photo_camera_rounded,
-              label: cameraLabel,
-              filled: true,
-              onTap: onCamera,
-            ),
-            const SizedBox(height: 12),
-            _ChooserButton(
-              icon: Icons.folder_open_rounded,
-              label: folderLabel,
-              filled: false,
-              onTap: onPickFolder,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// One option pill in the [_ScanChooser]. The primary action ([filled]) is the
-/// persimmon CTA; the secondary is an outlined butter pill.
-class _ChooserButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool filled;
-  final VoidCallback onTap;
-
-  const _ChooserButton({
-    required this.icon,
-    required this.label,
-    required this.filled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = filled ? PocketColors.paper : PocketColors.butter;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        decoration: BoxDecoration(
-          color: filled ? PocketColors.persimmon : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          border: filled
-              ? null
-              : Border.all(color: PocketColors.butter.withValues(alpha: 0.7)),
-          boxShadow: filled
-              ? [
-                  BoxShadow(
-                    color: PocketColors.persimmon.withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: fg),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: GoogleFonts.spaceMono(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: fg,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

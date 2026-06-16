@@ -59,6 +59,10 @@ dependencies:
   # Recent-photos thumbnail strip on the scanner (iPhone-style); web falls back
   # to the system picker (file_picker).
   photo_manager: ^3.0.0
+  # Single-shot camera capture for the receipt-OCR tab (a still photo, not the
+  # live QR stream that mobile_scanner drives). "Pick from folder" still uses
+  # file_picker for multi-select.
+  image_picker: ^1.1.2
   # Direct use of browser APIs (getUserMedia / canvas) in the web scan capture.
   web: ^1.1.0
 
