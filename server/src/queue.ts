@@ -40,7 +40,7 @@ export async function enqueueSync(userId: string): Promise<void> {
       retryLimit: 2,
       retryDelay: 60,
       retryBackoff: true,
-      expireInSeconds: 300,
+      expireInSeconds: config.syncJobExpireSeconds,
     },
   );
 }

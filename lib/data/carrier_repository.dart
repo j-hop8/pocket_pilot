@@ -81,6 +81,13 @@ class CarrierRepository {
         'Authorization': 'Bearer $token',
       },
     );
+    // The backend rate-limits manual syncs per user (cooldown / already running).
+    if (res.statusCode == 429) {
+      final retry = int.tryParse(res.headers['retry-after'] ?? '') ?? 0;
+      throw StateError(
+        retry > 0 ? '同步太頻繁，請於 $retry 秒後再試。' : '同步太頻繁，請稍後再試。',
+      );
+    }
     if (res.statusCode != 202 && res.statusCode != 200) {
       throw StateError('Sync request failed (${res.statusCode}): ${res.body}');
     }

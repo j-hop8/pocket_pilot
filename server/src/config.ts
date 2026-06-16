@@ -33,4 +33,23 @@ export const config = {
   // Queue / scheduler
   syncConcurrency: optionalInt("SYNC_CONCURRENCY", 2),
   schedulerIntervalMs: optionalInt("SCHEDULER_INTERVAL_MS", 60_000),
+  // Hard deadline for a whole sync job (scrape + ingest). Large accounts with
+  // many pages legitimately need more than the original 5 min.
+  syncJobExpireSeconds: optionalInt("SYNC_JOB_EXPIRE_SECONDS", 600),
+
+  // Rate limiting
+  // Minimum gap between manual /sync/now requests for the same user (429 below).
+  syncCooldownSeconds: optionalInt("SYNC_COOLDOWN_SECONDS", 60),
+  // Minimum gap between portal logins across ALL users (politeness / anti-bot).
+  portalMinGapMs: optionalInt("PORTAL_MIN_GAP_MS", 3_000),
+  // Generic per-IP HTTP ceiling (@fastify/rate-limit).
+  httpRateMax: optionalInt("HTTP_RATE_MAX", 60),
+  httpRateWindowMs: optionalInt("HTTP_RATE_WINDOW_MS", 60_000),
+
+  // Sync window (incremental date-range scrape)
+  // Re-fetch this many days before the last successful sync (dedupe makes the
+  // overlap a safe no-op; covers late-arriving invoices).
+  syncOverlapDays: optionalInt("SYNC_OVERLAP_DAYS", 3),
+  // First-ever sync (no last_synced_at) looks back this many days.
+  syncLookbackDays: optionalInt("SYNC_LOOKBACK_DAYS", 60),
 } as const;
