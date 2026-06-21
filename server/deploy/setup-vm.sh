@@ -12,7 +12,7 @@ set -euo pipefail
 APP_DIR=/opt/pocketpilot
 GHCR_USER=j-hop8
 
-echo "==> 1/4 Docker"
+echo "==> 1/6 Docker"
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sudo sh
   sudo usermod -aG docker "$USER" || true
@@ -21,7 +21,7 @@ else
   echo "   Docker present: $(docker --version)"
 fi
 
-echo "==> 2/4 Swap (2 GB)"
+echo "==> 2/6 Swap (2 GB)"
 if ! sudo swapon --show 2>/dev/null | grep -q '/swapfile'; then
   sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
   sudo chmod 600 /swapfile
@@ -33,7 +33,7 @@ else
   echo "   Swap already present."
 fi
 
-echo "==> 3/4 App dir + .env template"
+echo "==> 3/6 App dir + .env template"
 sudo mkdir -p "$APP_DIR"
 sudo chown "$USER:$USER" "$APP_DIR"
 if [ ! -f "$APP_DIR/.env" ]; then
@@ -54,7 +54,7 @@ else
   echo "   $APP_DIR/.env already exists — leaving it untouched."
 fi
 
-echo "==> 4/4 cloudflared (HTTPS tunnel)"
+echo "==> 4/6 cloudflared (HTTPS tunnel; optional — nginx+certbot is the default now)"
 if ! command -v cloudflared >/dev/null 2>&1; then
   curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
   echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
@@ -63,6 +63,47 @@ if ! command -v cloudflared >/dev/null 2>&1; then
 else
   echo "   cloudflared present: $(cloudflared --version 2>/dev/null | head -1)"
 fi
+
+echo "==> 5/6 nginx reverse proxy + hardening"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! command -v nginx >/dev/null 2>&1; then
+  sudo apt-get update -y && sudo apt-get install -y nginx python3-certbot-nginx
+fi
+if [ -f "$SCRIPT_DIR/nginx/pocketpilot-limits.conf" ]; then
+  sudo cp "$SCRIPT_DIR/nginx/pocketpilot-limits.conf" /etc/nginx/conf.d/pocketpilot-limits.conf
+  # Only install the HTTP template if certbot hasn't already added the TLS block —
+  # re-running must never clobber the live `listen 443 ssl` config.
+  if sudo grep -q 'listen 443' /etc/nginx/sites-available/pocketpilot 2>/dev/null; then
+    echo "   sites-available/pocketpilot already has TLS (certbot) — left untouched."
+  else
+    sudo cp "$SCRIPT_DIR/nginx/pocketpilot.conf" /etc/nginx/sites-available/pocketpilot
+    sudo ln -sf /etc/nginx/sites-available/pocketpilot /etc/nginx/sites-enabled/pocketpilot
+    sudo rm -f /etc/nginx/sites-enabled/default
+    echo "   nginx HTTP site installed. Next: sudo certbot --nginx -d <host> --redirect"
+  fi
+  sudo nginx -t && sudo systemctl reload nginx
+else
+  echo "   (server/deploy/nginx/*.conf not found next to this script — skipping nginx step)"
+fi
+
+echo "==> 6/6 fail2ban + automatic security updates"
+sudo apt-get install -y fail2ban unattended-upgrades
+if [ ! -f /etc/fail2ban/jail.local ]; then
+  sudo tee /etc/fail2ban/jail.local >/dev/null <<'JAIL'
+# Ban hosts that brute-force SSH or hammer nginx past its rate limit.
+[sshd]
+enabled = true
+
+[nginx-limit-req]
+enabled  = true
+logpath  = /var/log/nginx/error.log
+JAIL
+fi
+sudo systemctl enable --now fail2ban
+# Turn on the daily security-update job.
+echo 'APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";' | sudo tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null
+sudo systemctl enable --now unattended-upgrades 2>/dev/null || true
 
 cat <<EOF
 

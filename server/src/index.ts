@@ -17,9 +17,13 @@ import { startWorker } from "./worker";
 import { startScheduler } from "./scheduler";
 import { setStatus, ocr } from "./sync";
 
-// trustProxy so req.ip (and the rate limiter) sees the real client IP behind
-// Railway/Render's proxy instead of the proxy's address.
-const app = Fastify({ logger: true, trustProxy: true });
+// trustProxy: 'loopback' so req.ip (and the rate limiter) sees the real client
+// IP from the nginx hop on 127.0.0.1 — but ONLY that hop is trusted. With the
+// previous `true`, any client could spoof `X-Forwarded-For` and rotate req.ip to
+// evade the per-IP rate limit; trusting only loopback (nginx) closes that. nginx
+// also overwrites X-Forwarded-For with $remote_addr (see deploy/nginx), so a
+// client-supplied header is discarded before it ever reaches Fastify.
+const app = Fastify({ logger: true, trustProxy: "loopback" });
 
 // ORDER MATTERS: @fastify/rate-limit attaches to each route via an `onRoute`
 // hook, so it must finish registering *before* the routes are declared (unlike
