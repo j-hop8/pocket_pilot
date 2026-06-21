@@ -63,9 +63,22 @@ jobs:
     # still builds + pushes the image to GHCR; only the SSH deploy is held back.
     if: ${{ vars.BACKEND_DEPLOY_ENABLED == 'true' }}
     steps:
+      - uses: actions/checkout@v5
+
+      # Keep the VM's compose file in sync with the repo (so compose changes
+      # deploy automatically). .env is created once on the VM and never touched.
+      - name: Sync docker-compose.yml to VM
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VM_SSH_HOST }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: server/docker-compose.yml
+          target: /opt/pocketpilot
+          strip_components: 1
+
       # The VM runs `docker login ghcr.io` once during setup (read:packages PAT),
-      # so the pull below needs no credentials passed from CI. docker-compose.yml
-      # and .env already live in /opt/pocketpilot on the VM.
+      # so the pull below needs no credentials passed from CI.
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:

@@ -128,33 +128,26 @@ version in `package.json` (currently `1.49.0`).
 
 ### One-time VM setup
 
+Create an e2-micro (`us-central1`, Debian/Ubuntu, 30 GB disk), SSH in, copy
+[`deploy/setup-vm.sh`](deploy/setup-vm.sh) over, and run it — it installs Docker,
+a 2 GB swapfile, cloudflared, and writes a `/opt/pocketpilot/.env` template:
+
 ```bash
-# 1. Create an e2-micro (us-central1, Debian/Ubuntu, 30 GB disk), then SSH in.
-# 2. Install Docker (get.docker.com) and add a 2 GB swapfile:
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-sudo mkswap /swapfile && sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-
-# 3. App dir + secrets + compose file:
-sudo mkdir -p /opt/pocketpilot && cd /opt/pocketpilot
-sudo cp /path/to/repo/server/docker-compose.yml .
-sudo cp /path/to/repo/server/.env.example .env   # then edit with real values
-#    set in .env: SUPABASE_*, SUPABASE_DB_URL (session :5432),
-#                 HEADLESS=false, SYNC_CONCURRENCY=1
-
-# 4. Let the VM pull from GHCR (read:packages PAT, stored once):
-echo <GHCR_READ_PAT> | docker login ghcr.io -u <github-user> --password-stdin
-
-# 5. Cloudflare Tunnel -> HTTPS (no inbound ports / static IP needed):
-#    Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels -> create,
-#    add a public hostname  api.<your-domain>  ->  http://localhost:8080,
-#    then run cloudflared on the host (or the compose sidecar):
-sudo cloudflared service install <TUNNEL_TOKEN>
-
-# 6. Start it:
-docker compose pull && docker compose up -d
-curl -s https://api.<your-domain>/healthz   # -> {"ok":true}
+bash setup-vm.sh
 ```
+
+Then finish the manual bits it prints:
+
+```bash
+# a) Let the VM pull the private image (read:packages PAT, stored once):
+echo <GHCR_READ_PAT> | docker login ghcr.io -u j-hop8 --password-stdin
+# b) Edit /opt/pocketpilot/.env with real Supabase values (session-mode :5432 DB URL).
+# c) Cloudflare Tunnel: route  api.<your-domain> -> http://localhost:8080 , then:
+sudo cloudflared service install <TUNNEL_TOKEN>
+```
+
+The `docker-compose.yml` and the image are delivered by CI — you don't copy them
+manually. After the first deploy: `curl https://api.<your-domain>/healthz` → `{"ok":true}`.
 
 (No Cloudflare-managed domain? Use a Caddy reverse proxy + an `sslip.io`/DuckDNS
 hostname for automatic Let's Encrypt TLS instead of the tunnel.)
@@ -166,7 +159,8 @@ hostname for automatic Let's Encrypt TLS instead of the tunnel.)
 builds the image and pushes `ghcr.io/j-hop8/pocketpilot-server:latest` to GHCR.
 Building on CI (not the 1 GB VM) is deliberate.
 
-The `deploy` job (SSH into the VM → `docker compose pull && up -d`) is **gated**:
+The `deploy` job (sync `docker-compose.yml` to the VM → SSH → `docker compose pull
+&& up -d`) is **gated**:
 it only runs when the repo variable **`BACKEND_DEPLOY_ENABLED=true`** is set
 (Settings → Secrets and variables → Actions → **Variables**). Leave it unset until
 the VM is provisioned — pushes will still build + push the image, just skip the
