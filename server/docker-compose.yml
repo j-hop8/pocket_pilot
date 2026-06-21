@@ -11,6 +11,12 @@ services:
   server:
     image: ghcr.io/j-hop8/pocketpilot-server:latest
     restart: unless-stopped
+    # Run tini as PID 1. The image's CMD is `xvfb-run … npm run start`, and
+    # xvfb-run uses a SIGUSR1 handshake to detect Xvfb readiness — that deadlocks
+    # when xvfb-run is itself PID 1 (PID 1 has no default signal handlers), so the
+    # wrapped `npm run start` never execs and the server never boots. tini gives
+    # xvfb-run a normal parent so the handshake works.
+    init: true
     env_file: .env
     ports:
       - "127.0.0.1:8080:8080"
