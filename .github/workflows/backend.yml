@@ -1,0 +1,80 @@
+name: Backend (GHCR + VM deploy)
+
+# Builds the server Docker image (Playwright base) in CI — never on the 1 GB
+# e2-micro VM — pushes it to GHCR, then SSHes into the VM to pull + restart.
+# Secrets stay in /opt/pocketpilot/.env on the VM; none are baked into the image.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/pocketpilot-server
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    # Skipped until the VM is provisioned. Add repo variable
+    # BACKEND_DEPLOY_ENABLED=true (Settings -> Secrets and variables -> Actions
+    # -> Variables) once the VM + SSH secrets are ready. Until then, every push
+    # still builds + pushes the image to GHCR; only the SSH deploy is held back.
+    if: ${{ vars.BACKEND_DEPLOY_ENABLED == 'true' }}
+    steps:
+      # The VM runs `docker login ghcr.io` once during setup (read:packages PAT),
+      # so the pull below needs no credentials passed from CI. docker-compose.yml
+      # and .env already live in /opt/pocketpilot on the VM.
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_SSH_HOST }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/pocketpilot
+            docker compose pull
+            docker compose up -d
+            docker image prune -f

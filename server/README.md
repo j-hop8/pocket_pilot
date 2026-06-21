@@ -107,18 +107,77 @@ npm run dev              # tsx watch — API + worker + scheduler
 
 ---
 
-## Deploy (Railway / Render)
+## Deploy (GCP free-tier VM + Cloudflare Tunnel)
 
-Build from the `Dockerfile` (Playwright base image → Chromium + Xvfb + Node 20).
-Keep the image tag in lockstep with the `playwright` version in `package.json`
-(currently `1.49.0`).
+The web demo runs the backend on a **Google Cloud Always-Free e2-micro VM** via
+Docker, fronted by **Cloudflare Tunnel** for HTTPS. CI builds the image; the VM
+only pulls. (Railway/Render are drop-in alternatives — same Dockerfile, pick an
+**Asia/Singapore** region; the only changes are where env vars live and how the
+image is deployed.)
 
-1. New service → deploy from this repo's `server/` directory (Dockerfile).
-2. Pick an **Asia/Singapore** region (closer to the TW gov portal; risk #1).
-3. Set all env vars above. `HEADLESS=false` is already baked into the image.
-4. Health check path: `/healthz`.
-5. Point the Flutter app at the service: build with
-   `--dart-define BACKEND_URL=https://your-service.example`.
+Keep the Dockerfile's Playwright base tag in lockstep with the `playwright`
+version in `package.json` (currently `1.49.0`).
+
+> **e2-micro is 1 GB RAM / shared vCPU** — tight for Chromium + Xvfb + Tesseract.
+> Run with `SYNC_CONCURRENCY=1`, add a **2 GB swapfile**, and keep `HEADLESS=false`
+> (set in the image). [`docker-compose.yml`](docker-compose.yml) caps container
+> memory so an OOM restarts the container, not the VM. Always-Free e2-micro only
+> exists in `us-west1`/`us-central1`/`us-east1`; the US→TW latency raises the
+> Cloudflare-Turnstile risk (#1) — set `PROXY_URL` if the portal blocks the IP.
+> Carrier sync is the only feature this affects; treat it as best-effort.
+
+### One-time VM setup
+
+```bash
+# 1. Create an e2-micro (us-central1, Debian/Ubuntu, 30 GB disk), then SSH in.
+# 2. Install Docker (get.docker.com) and add a 2 GB swapfile:
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# 3. App dir + secrets + compose file:
+sudo mkdir -p /opt/pocketpilot && cd /opt/pocketpilot
+sudo cp /path/to/repo/server/docker-compose.yml .
+sudo cp /path/to/repo/server/.env.example .env   # then edit with real values
+#    set in .env: SUPABASE_*, SUPABASE_DB_URL (session :5432),
+#                 HEADLESS=false, SYNC_CONCURRENCY=1
+
+# 4. Let the VM pull from GHCR (read:packages PAT, stored once):
+echo <GHCR_READ_PAT> | docker login ghcr.io -u <github-user> --password-stdin
+
+# 5. Cloudflare Tunnel -> HTTPS (no inbound ports / static IP needed):
+#    Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels -> create,
+#    add a public hostname  api.<your-domain>  ->  http://localhost:8080,
+#    then run cloudflared on the host (or the compose sidecar):
+sudo cloudflared service install <TUNNEL_TOKEN>
+
+# 6. Start it:
+docker compose pull && docker compose up -d
+curl -s https://api.<your-domain>/healthz   # -> {"ok":true}
+```
+
+(No Cloudflare-managed domain? Use a Caddy reverse proxy + an `sslip.io`/DuckDNS
+hostname for automatic Let's Encrypt TLS instead of the tunnel.)
+
+### CI/CD
+
+[`.github/workflows/backend.yml`](../.github/workflows/backend.yml): on push to
+`main` touching `server/**` (or manual **Run workflow**), the `build-push` job
+builds the image and pushes `ghcr.io/j-hop8/pocketpilot-server:latest` to GHCR.
+Building on CI (not the 1 GB VM) is deliberate.
+
+The `deploy` job (SSH into the VM → `docker compose pull && up -d`) is **gated**:
+it only runs when the repo variable **`BACKEND_DEPLOY_ENABLED=true`** is set
+(Settings → Secrets and variables → Actions → **Variables**). Leave it unset until
+the VM is provisioned — pushes will still build + push the image, just skip the
+deploy. When ready, add the secrets `VM_SSH_HOST` / `VM_SSH_USER` / `VM_SSH_KEY`
+and set the variable. PRs run typecheck + tests via
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+Point the Flutter app at the service with the **https** tunnel URL:
+`--dart-define BACKEND_URL=https://api.<your-domain>` (set as the `BACKEND_URL`
+GitHub secret). CORS already reflects any origin (Bearer-JWT auth, no cookies), so
+no per-origin config is needed.
 
 Single instance is assumed (the scheduler runs in-process). To scale out, run one
 web+worker instance and move the scheduler to a leader-locked job.

@@ -1,0 +1,43 @@
+# Runs on the GCP e2-micro VM. CI pushes the image to GHCR; this pulls + runs the
+# combined API + queue worker + scheduler. Secrets live in ./.env (NOT committed).
+#
+#   cd /opt/pocketpilot && docker compose up -d
+#
+# Cloudflare Tunnel (cloudflared, on the host) terminates HTTPS and forwards to
+# 127.0.0.1:8080 — that's why the port is bound to localhost only, with no inbound
+# firewall port opened on the VM.
+
+services:
+  server:
+    image: ghcr.io/j-hop8/pocketpilot-server:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    # e2-micro guardrails (1 GB RAM): cap memory so an OOM restarts the container
+    # rather than the whole VM. Pair with a 2 GB host swapfile and SYNC_CONCURRENCY=1.
+    mem_limit: 900m
+    mem_reservation: 256m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # Optional: run Cloudflare Tunnel as a container instead of a host service.
+  # Uncomment and put TUNNEL_TOKEN in .env (Cloudflare dashboard -> Zero Trust ->
+  # Networks -> Tunnels). Otherwise install cloudflared on the host (see README).
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+  #   depends_on:
+  #     - server
