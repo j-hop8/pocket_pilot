@@ -1,0 +1,75 @@
+name: Frontend (Cloudflare Pages)
+
+# Builds the Flutter web app and deploys it to Cloudflare Pages.
+#   - push to main  -> production deploy (pocketpilot.pages.dev / custom domain)
+#   - pull request  -> preview deploy (unique *.pages.dev URL, commented on the PR)
+# Build-time config is injected with --dart-define from GitHub secrets; the
+# Supabase anon key is the publishable key, so it's safe in the client bundle.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "web/**"
+      - "packages/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "web/**"
+      - "packages/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - ".github/workflows/frontend.yml"
+
+# One deploy per ref; cancel a run that a newer push supersedes.
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write # let wrangler-action post the preview URL on PRs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.32.8
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Gate: a failing analyze/test blocks the deploy.
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
+            --dart-define=BACKEND_URL=${{ secrets.BACKEND_URL }}
+
+      # branch == the project's production branch (main) -> production deploy;
+      # any other branch (PR head) -> preview deploy.
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy build/web
+            --project-name=pocketpilot
+            --branch=${{ github.head_ref || github.ref_name }}
