@@ -46,3 +46,10 @@ app.*.map.json
 
 # PocketPilot — local secrets (Supabase URL/anon key). Use dart_defines.example.json as a template.
 dart_defines.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
