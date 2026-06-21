@@ -62,6 +62,20 @@ jobs:
             --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
             --dart-define=BACKEND_URL=${{ secrets.BACKEND_URL }}
 
+      # First run creates the Pages project (Direct Upload); later runs find it
+      # and skip. Needs the API token's Account -> Cloudflare Pages -> Edit perm.
+      - name: Ensure Cloudflare Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if npx --yes wrangler@3.90.0 pages project list | grep -qw pocketpilot; then
+            echo "Pages project 'pocketpilot' already exists."
+          else
+            echo "Creating Pages project 'pocketpilot' (production branch: main)..."
+            npx --yes wrangler@3.90.0 pages project create pocketpilot --production-branch=main
+          fi
+
       # branch == the project's production branch (main) -> production deploy;
       # any other branch (PR head) -> preview deploy.
       - name: Deploy to Cloudflare Pages
@@ -73,3 +87,4 @@ jobs:
             pages deploy build/web
             --project-name=pocketpilot
             --branch=${{ github.head_ref || github.ref_name }}
+            --commit-dirty=true
