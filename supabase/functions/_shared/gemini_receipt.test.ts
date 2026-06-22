@@ -64,10 +64,10 @@ Deno.test("primary model success — one call, no fallback", async () => {
   assertEquals(receipt.merchantName, "Corner Cafe");
   assertEquals(receipt.total, 120);
   assertEquals(calls.length, 1);
-  assertMatch(calls[0].url, /gemini-3\.1-flash-lite/);
+  assertMatch(calls[0].url, /gemini-2\.5-flash-lite/);
 });
 
-Deno.test("429 on the primary falls through to the next (Gemma) model", async () => {
+Deno.test("429 on the primary falls through to the next model", async () => {
   const { fetchFn, calls } = sequencedFetch([
     { status: 429, body: "rate limited" },
     { body: geminiBody(RECEIPT_JSON) },
@@ -77,27 +77,75 @@ Deno.test("429 on the primary falls through to the next (Gemma) model", async ()
 
   assertEquals(receipt.merchantName, "Corner Cafe");
   assertEquals(calls.length, 2);
-  assertMatch(calls[1].url, /gemma-3-12b-it/);
+  assertMatch(calls[1].url, /gemini-3\.1-flash-lite/);
+});
 
-  // Gemma can't use responseSchema; it must get bare-JSON instructions instead.
-  const gen = (calls[1].body.generationConfig ?? {}) as Record<string, unknown>;
+// Regression test for the reported failure: a busy primary (429) followed by an
+// unavailable model (404 "is not found ... or is not supported for
+// generateContent") must NOT sink the scan — the chain keeps going until a
+// working model answers.
+Deno.test("a busy model then a 404 model both fall through to a working one", async () => {
+  const { fetchFn, calls } = sequencedFetch([
+    { status: 429, body: "rate limited" }, // gemini-2.5-flash-lite busy
+    { status: 404, body: "model not found" }, // gemini-3.1-flash-lite unavailable
+    { body: geminiBody(RECEIPT_JSON) }, // gemini-2.5-flash answers
+  ]);
+
+  const receipt = await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
+
+  assertEquals(receipt.total, 120);
+  assertEquals(calls.length, 3);
+});
+
+// Reaching the Gemma fallbacks needs every Gemini model in front of them to be
+// skipped first (3 here). The Gemma branch must send no responseSchema and the
+// bare-JSON instruction instead.
+Deno.test("Gemma fallback sends bare-JSON config, no responseSchema", async () => {
+  const { fetchFn, calls } = sequencedFetch([
+    { status: 429, body: "busy" }, // gemini-2.5-flash-lite
+    { status: 429, body: "busy" }, // gemini-3.1-flash-lite
+    { status: 429, body: "busy" }, // gemini-2.5-flash
+    { body: geminiBody(RECEIPT_JSON) }, // gemma-4-26b-a4b-it
+  ]);
+
+  const receipt = await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
+
+  assertEquals(receipt.merchantName, "Corner Cafe");
+  assertEquals(calls.length, 4);
+  assertMatch(calls[3].url, /gemma-4-26b-a4b-it/);
+
+  const gen = (calls[3].body.generationConfig ?? {}) as Record<string, unknown>;
   assertEquals(gen.responseSchema, undefined);
   assertEquals(gen.responseMimeType, undefined);
-  const parts = (calls[1].body.contents as Array<{ parts: Array<{ text?: string }> }>)[0].parts;
+  const parts = (calls[3].body.contents as Array<{ parts: Array<{ text?: string }> }>)[0].parts;
   const promptText = parts.map((p) => p.text ?? "").join("");
   assertMatch(promptText, /Return ONLY a single JSON object/);
 });
 
-Deno.test("Gemma reply wrapped in ```json fences is parsed", async () => {
+Deno.test("a reply wrapped in ```json fences is parsed", async () => {
   const fenced = "```json\n" + RECEIPT_JSON + "\n```";
   const { fetchFn } = sequencedFetch([
-    { status: 429, body: "busy" }, // skip the Gemini primary
-    { body: geminiBody(fenced) }, // gemma-3-12b-it replies with fences
+    { status: 429, body: "busy" }, // skip the primary
+    { body: geminiBody(fenced) }, // next model replies with fences
   ]);
 
   const receipt = await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
   assertEquals(receipt.merchantName, "Corner Cafe");
   assertEquals(receipt.total, 120);
+});
+
+// A flaky model (Gemma sometimes 500s "Internal error") must not break the chain
+// when a later model would succeed.
+Deno.test("a transient 500 on a model falls through to the next", async () => {
+  const { fetchFn, calls } = sequencedFetch([
+    { status: 500, body: "Internal error" },
+    { body: geminiBody(RECEIPT_JSON) },
+  ]);
+
+  const receipt = await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
+
+  assertEquals(receipt.total, 120);
+  assertEquals(calls.length, 2);
 });
 
 Deno.test("503 is retryable too", async () => {
@@ -110,25 +158,28 @@ Deno.test("503 is retryable too", async () => {
   assertEquals(calls.length, 2);
 });
 
-Deno.test("every model rate-limited throws after exhausting the chain", async () => {
+Deno.test("every model unavailable throws after exhausting the chain", async () => {
   const { fetchFn, calls } = sequencedFetch([{ status: 429, body: "nope" }]);
 
   await assertRejects(
     () => extractReceipt(IMG, "image/jpeg", "key", fetchFn),
     Error,
-    "rate-limited",
+    "unavailable",
   );
   // One call per model in the chain (currently 5).
   assert(calls.length >= 5);
 });
 
-Deno.test("a non-retryable error surfaces immediately, no fallthrough", async () => {
-  const { fetchFn, calls } = sequencedFetch([{ status: 400, body: "bad request" }]);
+Deno.test("a fatal (non-skippable) error surfaces immediately, no fallthrough", async () => {
+  // 401/403 are key-level: they'd fail identically on every model, so we surface
+  // them at once rather than burning the whole chain. (404/400, by contrast, are
+  // per-model and DO fall through — see the 404 regression test above.)
+  const { fetchFn, calls } = sequencedFetch([{ status: 401, body: "bad key" }]);
 
   await assertRejects(
     () => extractReceipt(IMG, "image/jpeg", "key", fetchFn),
     Error,
-    "(400)",
+    "(401)",
   );
   assertEquals(calls.length, 1);
 });
