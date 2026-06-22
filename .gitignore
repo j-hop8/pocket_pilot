@@ -53,3 +53,6 @@ dart_defines.json
 !.dev.vars.example
 .env*
 !.env.example
+
+# Claude Code local settings (may contain anon key in permission rules)
+.claude/settings.local.json
