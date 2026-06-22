@@ -68,6 +68,12 @@ jobs:
             --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
             --dart-define=BACKEND_URL=${{ secrets.BACKEND_URL }}
 
+      # wrangler v4 (installed by wrangler-action) needs Node >= 22; pin it so the
+      # deploy doesn't depend on the runner's default Node version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       # push to main -> production deploy; PR -> upload a preview version (its URL
       # is posted back on the PR). wrangler uploads build/web per wrangler.jsonc;
       # the Worker named `pocketpilot` is created on the first deploy.
