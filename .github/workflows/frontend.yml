@@ -1,8 +1,13 @@
-name: Frontend (Cloudflare Pages)
+name: Frontend (Cloudflare Workers)
 
-# Builds the Flutter web app and deploys it to Cloudflare Pages.
-#   - push to main  -> production deploy (pocketpilot.pages.dev / custom domain)
-#   - pull request  -> preview deploy (unique *.pages.dev URL, commented on the PR)
+# Builds the Flutter web app and deploys it to Cloudflare Workers (static assets).
+#   - push to main  -> production deploy   (wrangler deploy)
+#   - pull request  -> preview version     (wrangler versions upload; URL on the PR)
+# Flutter is built HERE rather than in Cloudflare's git build because Cloudflare's
+# build image has no Flutter buildpack. wrangler then uploads the built build/web
+# (see wrangler.jsonc -> assets.directory). Do NOT also connect this repo to
+# Cloudflare Workers Builds (the dashboard git integration) — it would re-run
+# `wrangler deploy` without a Flutter build and fail on the missing build/web.
 # Build-time config is injected with --dart-define from GitHub secrets; the
 # Supabase anon key is the publishable key, so it's safe in the client bundle.
 
@@ -16,6 +21,7 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - "analysis_options.yaml"
+      - "wrangler.jsonc"
       - ".github/workflows/frontend.yml"
   pull_request:
     paths:
@@ -25,6 +31,7 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - "analysis_options.yaml"
+      - "wrangler.jsonc"
       - ".github/workflows/frontend.yml"
 
 # One deploy per ref; cancel a run that a newer push supersedes.
@@ -37,7 +44,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployments: write
       pull-requests: write # let wrangler-action post the preview URL on PRs
     steps:
       - uses: actions/checkout@v5
@@ -62,29 +68,13 @@ jobs:
             --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
             --dart-define=BACKEND_URL=${{ secrets.BACKEND_URL }}
 
-      # First run creates the Pages project (Direct Upload); later runs find it
-      # and skip. Needs the API token's Account -> Cloudflare Pages -> Edit perm.
-      - name: Ensure Cloudflare Pages project exists
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if npx --yes wrangler@3.90.0 pages project list | grep -qw pocketpilot; then
-            echo "Pages project 'pocketpilot' already exists."
-          else
-            echo "Creating Pages project 'pocketpilot' (production branch: main)..."
-            npx --yes wrangler@3.90.0 pages project create pocketpilot --production-branch=main
-          fi
-
-      # branch == the project's production branch (main) -> production deploy;
-      # any other branch (PR head) -> preview deploy.
-      - name: Deploy to Cloudflare Pages
+      # push to main -> production deploy; PR -> upload a preview version (its URL
+      # is posted back on the PR). wrangler uploads build/web per wrangler.jsonc;
+      # the Worker named `pocketpilot` is created on the first deploy.
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >-
-            pages deploy build/web
-            --project-name=pocketpilot
-            --branch=${{ github.head_ref || github.ref_name }}
-            --commit-dirty=true
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: ${{ github.event_name == 'push' && 'deploy' || 'versions upload' }}
