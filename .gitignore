@@ -54,5 +54,6 @@ dart_defines.json
 .env*
 !.env.example
 
+# Claude Code — machine-local settings (paths, local permission allowlist)
 # Claude Code local settings (may contain anon key in permission rules)
 .claude/settings.local.json
