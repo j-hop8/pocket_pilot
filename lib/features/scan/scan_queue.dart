@@ -204,7 +204,7 @@ class ScanQueue extends Notifier<ScanQueueState> {
       // The daily-cap case gets a friendly localized message; anything else
       // falls back to the raw error (shown in the failed row's tooltip).
       final error = e is ExtractionLimitReached
-          ? ref.read(stringsProvider).scanLimitReached
+          ? ref.read(stringsProvider).scanLimitReached(e.limit)
           : '$e';
       _update(job.id,
           (j) => j.copyWith(status: ScanJobStatus.failed, error: error));

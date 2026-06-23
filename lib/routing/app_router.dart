@@ -21,6 +21,10 @@ final appRouter = GoRouter(
     final loggingIn = state.matchedLocation == '/login';
     if (!signedIn) return loggingIn ? null : '/login';
     if (loggingIn) return '/';
+    // Demo (anonymous) users have no carrier credentials and can't sync; keep
+    // them out of /carrier even via deep link / hot-reload landing.
+    final isDemo = supabase.auth.currentUser?.isAnonymous ?? false;
+    if (isDemo && state.matchedLocation == '/carrier') return '/';
     return null;
   },
   routes: [

@@ -13,8 +13,14 @@ export function bearerToken(req: FastifyRequest): string | null {
   return m ? m[1] : null;
 }
 
-export async function userIdFromToken(token: string): Promise<string | null> {
+/// Resolves both the user id and whether the session is an anonymous ("demo")
+/// account from a Bearer token. Returns null when the token is invalid. Demo
+/// users are blocked from carrier sync (they have no portal credentials and we
+/// don't want them logging into the gov portal), so callers check `isAnonymous`.
+export async function userFromToken(
+  token: string,
+): Promise<{ id: string; isAnonymous: boolean } | null> {
   const { data, error } = await clientForToken(token).auth.getUser();
   if (error || !data.user) return null;
-  return data.user.id;
+  return { id: data.user.id, isAnonymous: data.user.is_anonymous === true };
 }

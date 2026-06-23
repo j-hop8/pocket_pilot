@@ -78,6 +78,20 @@ class AuthService {
     }
   }
 
+  /// Signs in as an anonymous "demo" user — no Google account needed. Each call
+  /// mints a fresh isolated Supabase account (its own `auth.uid()`), so demo
+  /// visitors never share data. The session persists like any other, and the
+  /// router redirect lets them into the app once it exists. Anonymous sign-ins
+  /// must be enabled in the Supabase dashboard for this to succeed.
+  Future<void> signInAnonymously() async {
+    try {
+      await supabase.auth.signInAnonymously();
+    } catch (e) {
+      debugPrint('AuthService: signInAnonymously failed: $e');
+      _errors.add(e);
+    }
+  }
+
   /// Starts interactive sign-in where supported (mobile/desktop). On web the
   /// rendered GIS button drives sign-in instead, so this is a no-op there.
   Future<void> signInWithGoogle() async {

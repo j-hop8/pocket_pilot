@@ -54,6 +54,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  Future<void> _signInAnon() async {
+    setState(() => _loading = true);
+    await ref.read(authServiceProvider).signInAnonymously();
+    if (mounted) setState(() => _loading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
@@ -116,6 +122,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       loading: _loading,
                       onPressed: _loading ? null : _signIn,
                     ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: _loading ? null : _signInAnon,
+                    style: TextButton.styleFrom(
+                      foregroundColor: PocketColors.inkSoft,
+                    ),
+                    child: Text(
+                      s.tryDemo,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

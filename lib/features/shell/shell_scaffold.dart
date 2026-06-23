@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/auth_providers.dart';
 import '../../core/providers.dart';
 import '../../core/settings_provider.dart';
 import '../../core/theme.dart';
@@ -25,6 +26,9 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
+    // Carrier sync needs real portal credentials, so it's hidden for demo
+    // (anonymous) users — who also can't reach /carrier (see app_router).
+    final isDemo = ref.watch(isDemoProvider);
 
     return Scaffold(
       backgroundColor: PocketColors.board,
@@ -32,11 +36,12 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
         toolbarHeight: 62,
         title: const _PocketWordmark(),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.cloud_sync_outlined),
-            tooltip: s.carrierSyncTitle,
-            onPressed: () => context.push('/carrier'),
-          ),
+          if (!isDemo)
+            IconButton(
+              icon: const Icon(Icons.cloud_sync_outlined),
+              tooltip: s.carrierSyncTitle,
+              onPressed: () => context.push('/carrier'),
+            ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
