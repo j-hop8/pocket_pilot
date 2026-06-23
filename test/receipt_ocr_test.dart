@@ -162,8 +162,9 @@ void main() {
 
     final job = c.read(scanQueueProvider).jobs.single;
     expect(job.status, ScanJobStatus.failed);
-    // Not the raw exception — the localized "daily limit reached" string.
-    expect(job.error, c.read(stringsProvider).scanLimitReached);
+    // Not the raw exception — the localized "daily limit reached" string,
+    // carrying the server-reported limit (30 from the fake).
+    expect(job.error, c.read(stringsProvider).scanLimitReached(30));
   });
 
   test('a save error fails just that job', () async {

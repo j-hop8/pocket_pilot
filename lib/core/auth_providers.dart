@@ -27,3 +27,11 @@ final currentUserProvider = Provider<User?>((ref) {
   ref.watch(authStateProvider);
   return supabase.auth.currentUser;
 });
+
+/// True when the signed-in user is an anonymous "demo" account. The single
+/// source of truth for gating restricted features (carrier sync, tighter scan
+/// caps) in the UI. Recomputed on each auth change.
+final isDemoProvider = Provider<bool>((ref) {
+  ref.watch(authStateProvider);
+  return supabase.auth.currentUser?.isAnonymous ?? false;
+});

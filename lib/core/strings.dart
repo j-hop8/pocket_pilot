@@ -164,9 +164,9 @@ class AppStrings {
       ? '拍照或從相簿選擇，AI 會自動讀取收據內容記帳'
       : 'Snap a photo or pick from your library — AI reads it and adds it for you';
   String get scanTakePhoto => _zh ? '拍照' : 'Take photo';
-  String get scanLimitReached => _zh
-      ? '今天的掃描已達上限（每天 30 次），請明天再試。'
-      : 'Daily scan limit reached (30/day). Try again tomorrow.';
+  String scanLimitReached(int limit) => _zh
+      ? '今天的掃描已達上限（每天 $limit 次），請明天再試。'
+      : 'Daily scan limit reached ($limit/day). Try again tomorrow.';
 
   // ── Background scan queue (progress overlay) ─────────────────────────────────
   String queueTitle(int n) => _zh
@@ -236,8 +236,14 @@ class AppStrings {
       : 'Sign in with Google. Your invoices and spending stay private to you.';
   String get signInWithGoogle => _zh ? '使用 Google 登入' : 'Continue with Google';
   String get signInFailed     => _zh ? '登入失敗，請再試一次。' : 'Sign-in failed. Please try again.';
+  String get tryDemo          => _zh ? '先試用 Demo' : 'Try the demo';
   String get accountLabel     => _zh ? '帳號' : 'ACCOUNT';
   String get signOut          => _zh ? '登出' : 'Sign out';
+  String get demoAccountName  => _zh ? '訪客（Demo）' : 'Demo (guest)';
+  String get demoAccountHint  => _zh ? '暫時的 Demo 帳號' : 'Temporary demo account';
+  String get demoCarrierUnavailable => _zh
+      ? '載具同步在 Demo 帳號中無法使用。'
+      : 'Carrier sync isn\'t available in demo mode.';
 
   // ── Carrier sync ─────────────────────────────────────────────────────────────
   String get carrierSyncLabel  => _zh ? '發票同步' : 'CARRIER SYNC';

@@ -10,7 +10,7 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { config } from "./config";
 import { admin } from "./supabase";
-import { bearerToken, userIdFromToken } from "./auth";
+import { bearerToken, userFromToken } from "./auth";
 import { syncThrottleDecision } from "./lib/sync-throttle";
 import { enqueueSync, getBoss, stopBoss } from "./queue";
 import { startWorker } from "./worker";
@@ -67,8 +67,15 @@ async function buildServer(): Promise<void> {
   app.post("/sync/now", async (req, reply) => {
     const token = bearerToken(req);
     if (!token) return reply.code(401).send({ error: "unauthorized" });
-    const userId = await userIdFromToken(token);
-    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const user = await userFromToken(token);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    // Demo (anonymous) accounts can't sync — they have no portal credentials and
+    // we won't drive the gov portal for throwaway users. Defense-in-depth: the
+    // app already hides the UI, but the anon key is public so enforce here too.
+    if (user.isAnonymous) {
+      return reply.code(403).send({ error: "demo accounts cannot sync" });
+    }
+    const userId = user.id;
 
     // Per-user cooldown: don't let a tap-happy client re-log into the gov portal.
     const { data: cfg } = await admin

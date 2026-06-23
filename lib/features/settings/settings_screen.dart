@@ -18,6 +18,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s    = ref.watch(stringsProvider);
     final lang = ref.watch(languageProvider);
+    // Carrier sync requires real portal credentials, so demo (anonymous) users
+    // get a short note instead of the controls.
+    final isDemo = ref.watch(isDemoProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
@@ -43,7 +46,32 @@ class SettingsScreen extends ConsumerWidget {
         const SizedBox(height: 16),
         _SectionCard(
           label: s.carrierSyncLabel,
-          child: _CarrierSyncControls(s: s),
+          child: isDemo
+              ? _DemoNote(text: s.demoCarrierUnavailable)
+              : _CarrierSyncControls(s: s),
+        ),
+      ],
+    );
+  }
+}
+
+/// Short muted note shown where a feature is unavailable in demo mode.
+class _DemoNote extends StatelessWidget {
+  final String text;
+  const _DemoNote({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.lock_outline, size: 16, color: PocketColors.inkSoft),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.spaceMono(fontSize: 12, color: PocketColors.inkSoft),
+          ),
         ),
       ],
     );
@@ -61,10 +89,14 @@ class _AccountTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final isDemo = ref.watch(isDemoProvider);
     final meta = user?.userMetadata ?? const {};
-    final name = (meta['full_name'] ?? meta['name'] ?? user?.email ?? '') as String;
-    final email = user?.email ?? '';
-    final avatarUrl = (meta['avatar_url'] ?? meta['picture']) as String?;
+    // Anonymous demo users have no Google name/email; show a friendly placeholder.
+    final name = isDemo
+        ? s.demoAccountName
+        : (meta['full_name'] ?? meta['name'] ?? user?.email ?? '') as String;
+    final email = isDemo ? s.demoAccountHint : (user?.email ?? '');
+    final avatarUrl = isDemo ? null : (meta['avatar_url'] ?? meta['picture']) as String?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
