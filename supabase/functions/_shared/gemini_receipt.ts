@@ -14,17 +14,22 @@
 
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 
-// Ordered fallback chain. The free Gemini tier rate-limits easily, so on a
-// rate-limit / overload (see RETRYABLE) we move to the next model rather than
-// failing the scan. Gemma models can't use Gemini's responseSchema JSON mode and
-// the 1B/270M sizes can't read images, so the chain is only image-capable models
-// and the Gemma entries are the instruction-tuned (`-it`) multimodal variants.
+// Ordered fallback chain. The free Gemini tier rate-limits easily, so when a
+// model is busy OR unavailable (see SKIP_MODEL) we move to the next one rather
+// than failing the scan. Lead with confirmed image-capable Gemini models so a
+// rate-limit cascade stays on known-good models; the Gemma entries are deep
+// fallbacks for extra capacity. Gemma models can't use Gemini's responseSchema
+// JSON mode, so only the instruction-tuned (`-it`) variants are listed and they
+// take the bare-JSON path (see callModel). These IDs were verified against the
+// key's live ListModels — note it exposes Gemma *4*, not Gemma 3. If any entry
+// isn't enabled for the key it just 404s and is skipped, so the chain degrades
+// gracefully instead of breaking the whole scan.
 const MODELS = [
+  "gemini-2.5-flash-lite",
   "gemini-3.1-flash-lite",
-  "gemma-3-12b-it",
-  "gemma-3-4b-it",
-  "gemma-3-27b-it",
   "gemini-2.5-flash",
+  "gemma-4-26b-a4b-it",
+  "gemma-4-31b-it",
 ] as const;
 
 const endpoint = (model: string) =>
@@ -32,13 +37,25 @@ const endpoint = (model: string) =>
 
 const isGemma = (model: string) => model.startsWith("gemma");
 
-// HTTP statuses that mean "this model is busy, try the next one": 429 rate limit
-// / RESOURCE_EXHAUSTED and 503 overloaded. Anything else is a real failure.
-const RETRYABLE = new Set([429, 503]);
+// HTTP statuses that mean "skip this model, try the next one in the chain":
+//  - 429 (rate limit / RESOURCE_EXHAUSTED) and 503 (overloaded): the model is
+//    busy. The free tier hits these constantly.
+//  - 404 (NOT_FOUND) and 400 (e.g. "is not supported for generateContent"): the
+//    model isn't available for this API key / version. A model can vanish from
+//    the free tier or never have been enabled for the key. (This is the bug
+//    behind the "404 on gemma-3-12b-it" failure.)
+//  - 500/502/504: a transient server-side error on this model (e.g. the
+//    occasional 500 "Internal error" we see from gemma-4-26b-a4b-it) — the next
+//    model may well succeed, so don't sink the scan over one flaky response.
+// A single missing/busy/flaky model must never sink the whole scan, so we fall
+// through and let a later model answer. Auth failures (401/403) are the one thing
+// we surface immediately: they're key-level and would fail identically on every
+// model, so burning the rest of the chain is pointless.
+const SKIP_MODEL = new Set([400, 404, 429, 500, 502, 503, 504]);
 
-// Thrown by callModel for a RETRYABLE status so extractReceipt's loop knows to
+// Thrown by callModel for a SKIP_MODEL status so extractReceipt's loop knows to
 // fall through to the next model instead of surfacing the error.
-class RateLimited extends Error {}
+class SkipModel extends Error {}
 
 const defaultFetch: FetchFn = (url, init) =>
   fetch(url, { ...init, signal: AbortSignal.timeout(30000) });
@@ -147,22 +164,22 @@ export async function extractReceipt(
       return await callModel(model, imageBase64, mimeType, apiKey, fetchFn);
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
-      if (err instanceof RateLimited) {
-        lastErr = err; // model busy — fall through to the next one
+      if (err instanceof SkipModel) {
+        lastErr = err; // model busy or unavailable — fall through to the next one
         continue;
       }
       throw err; // a real failure — surface it now, don't burn the chain
     }
   }
   throw new Error(
-    `All ${MODELS.length} models rate-limited; last: ${lastErr?.message ?? "unknown"}`,
+    `All ${MODELS.length} models unavailable; last: ${lastErr?.message ?? "unknown"}`,
   );
 }
 
 // Sends the image+prompt to one model and returns the normalized receipt. Gemini
 // models are constrained to JSON via responseSchema; Gemma models get the bare
-// PROMPT plus JSON_ONLY_INSTRUCTION and lenient parsing. Throws RateLimited on a
-// RETRYABLE status so the caller can try the next model.
+// PROMPT plus JSON_ONLY_INSTRUCTION and lenient parsing. Throws SkipModel on a
+// SKIP_MODEL status so the caller can try the next model.
 async function callModel(
   model: string,
   imageBase64: string,
@@ -199,7 +216,7 @@ async function callModel(
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     const message = `Gemini request failed (${res.status}) on ${model}: ${detail.slice(0, 300)}`;
-    if (RETRYABLE.has(res.status)) throw new RateLimited(message);
+    if (SKIP_MODEL.has(res.status)) throw new SkipModel(message);
     throw new Error(message);
   }
 
