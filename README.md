@@ -1,86 +1,62 @@
 # PocketPilot
 
-A Taiwan expense tracker (Flutter + Supabase). Track spending by category from a
-dashboard, browse invoice history, add invoices manually, and sync invoices from
-the Ministry of Finance (財政部) e-invoice carrier.
+> A Taiwan-first personal expense tracker — scan an e-invoice or snap a receipt, and your spending sorts itself out.
 
-**Live demo:** https://pocketpilot.pocketpilot.workers.dev/
+**English** · [繁體中文](README.zh-TW.md)
 
-## Features
+PocketPilot turns the everyday paperwork of spending in Taiwan into a tidy, searchable
+ledger. It speaks the local format natively — Ministry of Finance (財政部) **e-invoices**
+and the **carrier (載具)** — and falls back to an AI receipt reader for everything else,
+so a photo of any receipt becomes a structured record with line items and a category.
+It's built with Flutter and Supabase.
 
-- **Dashboard** — monthly spend total + by-category breakdown (pie chart).
-- **History** — all invoices with line-item detail.
-- **Manual entry** — add an invoice with items.
-- **E-Invoice Carrier Sync** (Feature 1) — import the MOF carrier CSV
-  (消費明細 export): parses headers + line items, auto-assigns a category, and
-  stores them in Supabase, deduped by invoice number. Carrier login credentials
-  are entered + saved on the same screen for the future auto-sync path.
+## 🚀 Live demo
 
-## Run
+**[pocketpilot.pages.dev](https://pocketpilot.pages.dev/)** — the web build, running on
+Cloudflare Pages.
 
-```sh
-cp dart_defines.example.json dart_defines.json   # fill in your Supabase URL + anon key
-flutter pub get
-flutter run -d chrome --dart-define-from-file=dart_defines.json
-```
+## ✨ Features
 
-See [`supabase/README.md`](supabase/README.md) for the database schema,
-migrations, and the carrier-sync credential security notes.
+- **Dashboard** — this month's total spend and transaction count, with a by-category
+  pie chart and a clear income-vs-expense split.
+- **AI receipt scanning** — snap or upload a photo of any receipt and it's read
+  server-side into structured fields (merchant, total, items). Handles a wide range of
+  receipt formats and languages, so you're not locked to one layout.
+- **Taiwan e-invoice QR scan** — scan the QR codes on Taiwan e-invoices, including a
+  Big5 decoder for the item names many local POS systems emit.
+- **E-invoice carrier sync** — import your MOF carrier (載具) statement: invoices and
+  line items are parsed, auto-categorized, and de-duplicated by invoice number, with an
+  always-on backend for scheduled auto-sync.
+- **History & detail** — browse every invoice with filters, and drill into full
+  line-item detail.
+- **Manual entry** — add or edit an invoice and its items by hand when you need to.
+- **Custom categories** — use the built-in categories or create your own with a custom
+  icon and color.
+- **Bilingual** — full Traditional Chinese (繁體中文) and English throughout the app.
 
-## Test
+## 🗺️ Roadmap
 
-```sh
-flutter test       # includes the e-invoice CSV parser + categorizer tests
-flutter analyze
-```
+Where PocketPilot is headed next:
 
-## Deploy (web demo)
+- [ ] **Smarter auto-categorization** — automatic, AI-assisted categorization across
+  every way you add a transaction, not just carrier imports.
+- [ ] **Budgets** — set monthly and per-category budgets and track spending against them.
+- [ ] **Overseas-trip expenses** — record foreign-currency spending with exchange-rate
+  conversion. (The AI receipt reader already copes with other languages and formats, so
+  foreign receipts aren't a blocker.)
+- [ ] **Payment methods** — tag how each transaction was paid (cash, card, …) and break
+  spending down by method.
+- [ ] **Reconciliation** — match your records against your bank's monthly statement to
+  catch missing, duplicate, or mismatched transactions.
+- [ ] **Native mobile apps** — iOS and Android builds from the same Flutter codebase
+  (today PocketPilot ships as the web app).
 
-The app deploys to **Cloudflare Pages**; the optional carrier-sync backend runs on
-a **Google Cloud free-tier VM**. CI/CD is GitHub Actions (full auto-deploy).
+## 🧱 Tech stack
 
-### Pieces
-
-| Piece | Host | Workflow |
-| --- | --- | --- |
-| Flutter web (this app) | Cloudflare Pages | [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml) |
-| Node backend (`server/`) | GCP e2-micro VM (Docker) | [`.github/workflows/backend.yml`](.github/workflows/backend.yml) — see [`server/README.md`](server/README.md#deploy-gcp-free-tier-vm--cloudflare-tunnel) |
-| Supabase (DB/Auth/Edge Fns) | Supabase Cloud | `supabase db push` / `supabase functions deploy` (manual) |
-
-The backend is **only** used by carrier auto-sync — everything else works without
-it. You can ship the frontend first and add the backend later.
-
-### One-time setup
-
-1. **Cloudflare Pages project** named `pocketpilot` (Direct Upload / CI deploy —
-   Cloudflare has no Flutter buildpack, so CI builds and uploads `build/web`).
-   Create an API token scoped to *Account → Cloudflare Pages → Edit* and note the
-   Account ID.
-2. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
-   `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `GOOGLE_WEB_CLIENT_ID`, `BACKEND_URL`
-   (the **https** backend URL — see below). Backend deploy also needs
-   `VM_SSH_HOST`, `VM_SSH_USER`, `VM_SSH_KEY`.
-3. **Google Cloud Console → OAuth client:** add the Pages URL to
-   *Authorized JavaScript origins* (required by `google_sign_in_web`).
-4. **Supabase → Authentication → URL Configuration:** add the Pages URL to
-   Site URL + Redirect URLs.
-
-> **HTTPS is mandatory for the backend.** The Pages site is HTTPS, so the browser
-> blocks calls to a plain `http://<vm-ip>:8080` (mixed content). `BACKEND_URL`
-> must be an `https://` host — we use Cloudflare Tunnel (see the server README).
-
-### CI/CD
-
-- Push to `main` → frontend builds (analyze + test gate) and deploys to Pages
-  production; backend (on `server/**` changes) rebuilds the image, pushes to GHCR,
-  and the VM pulls + restarts.
-- Pull requests → Cloudflare Pages **preview** URL; backend PRs run typecheck +
-  tests ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
-
-### Build locally for web
-
-```sh
-flutter build web --release --dart-define-from-file=dart_defines.json
-# output in build/web — for production set BACKEND_URL to the https backend host
-```
+| Layer | Technology |
+| --- | --- |
+| App | Flutter (Dart) |
+| Backend / data | Supabase (Postgres, Auth, Edge Functions) |
+| AI receipt OCR | Gemini, via a Supabase Edge Function |
+| Carrier auto-sync | Node + TypeScript, Playwright |
+| Hosting | Cloudflare Pages (web), GitHub Actions CI/CD |

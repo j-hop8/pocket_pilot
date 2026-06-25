@@ -6,7 +6,13 @@
     "enabled": true
   },
   "assets": {
-    "directory": "web"
+    // Flutter's web build output (flutter_bootstrap.js, main.dart.js, etc.)
+    // lands in build/web after `flutter build web`. The repo-root web/ folder
+    // is only the source template and has no bootstrap, so serving it 404s.
+    "directory": "build/web",
+    // Flutter web is a single-page app: serve index.html for unknown routes
+    // so deep links / refreshes don't 404.
+    "not_found_handling": "single-page-application"
   },
   "compatibility_flags": [
     "nodejs_compat"
