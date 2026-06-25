@@ -1,7 +1,7 @@
 name: Frontend (Cloudflare Pages)
 
 # Builds the Flutter web app and deploys it to Cloudflare Pages.
-#   - push to main  -> production deploy (pocketpilot.pages.dev / custom domain)
+#   - push to main  -> production deploy (pocketpilot.pocketpilot.workers.dev / custom domain)
 #   - pull request  -> preview deploy (unique *.pages.dev URL, commented on the PR)
 # Build-time config is injected with --dart-define from GitHub secrets; the
 # Supabase anon key is the publishable key, so it's safe in the client bundle.

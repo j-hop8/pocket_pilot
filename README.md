@@ -1,5 +1,7 @@
 # PocketPilot
 
+**Live demo:** https://pocketpilot.pocketpilot.workers.dev/
+
 A Taiwan expense tracker (Flutter + Supabase). Track spending by category from a
 dashboard, browse invoice history, add invoices manually, and sync invoices from
 the Ministry of Finance (財政部) e-invoice carrier.
