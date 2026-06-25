@@ -12,8 +12,7 @@ It's built with Flutter and Supabase.
 
 ## 🚀 Live demo
 
-**[pocketpilot.pages.dev](https://pocketpilot.pages.dev/)** — the web build, running on
-Cloudflare Pages.
+**Live demo:** https://pocketpilot.pocketpilot.workers.dev/
 
 ## ✨ Features
 
