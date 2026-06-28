@@ -56,7 +56,6 @@ export async function ingestCsv(
   if (catErr) throw catErr;
   const catIdByKey = new Map<string, number>();
   for (const c of cats ?? []) catIdByKey.set(c.key as string, c.id as number);
-  const fallback = catIdByKey.get("other") ?? null;
 
   // Learn from the user's own history first: an item or merchant they've
   // categorized before keeps that category (item wins over merchant); the keyword
@@ -88,21 +87,36 @@ export async function ingestCsv(
     return { inserted: 0, skipped: parsed.length, items: 0, from, to };
   }
 
+  // Resolve each line item's category first (its own history → keyword on the
+  // item name), keyed by invoice number, so a header with no merchant match can
+  // fall back to the item mode and the item rows can reuse the same ids below.
+  const itemCatsByNumber = new Map<string, (number | null)[]>();
+  for (const p of fresh) {
+    itemCatsByNumber.set(
+      p.invoiceNumber,
+      p.items.map((it) => {
+        // null key (no rule matched) → null id, i.e. uncategorized.
+        const key = categorizeKey(null, [it.name]);
+        const fallback = key === null ? null : catIdByKey.get(key) ?? null;
+        return resolveItemCategory(it.name, itemHist, fallback);
+      }),
+    );
+  }
+
   // Build all invoice rows, resolving each header's category (merchant history →
-  // keyword fallback) and remembering the keyword fallback per invoice so its
-  // items can reuse it. Bulk-insert in chunks and map invoice_number → new id
-  // from the returned rows (PostgREST doesn't guarantee row order, so map by
-  // number, which is unique per user).
-  const keywordCatByNumber = new Map<string, number | null>();
+  // keyword on the merchant name → item mode). Bulk-insert in chunks and map
+  // invoice_number → new id from the returned rows (PostgREST doesn't guarantee
+  // row order, so map by number, which is unique per user).
   const invoiceRows = fresh.map((p) => {
-    const keywordCatId =
-      catIdByKey.get(categorizeKey(p.merchantName, p.items.map((i) => i.name))) ??
-      fallback;
-    keywordCatByNumber.set(p.invoiceNumber, keywordCatId);
+    const merchantKey = categorizeKey(p.merchantName, []);
+    const merchantKeywordCatId = merchantKey === null
+      ? null
+      : catIdByKey.get(merchantKey) ?? null;
     const categoryId = resolveInvoiceCategory(
       p.merchantName,
       merchantHist,
-      keywordCatId,
+      merchantKeywordCatId,
+      itemCatsByNumber.get(p.invoiceNumber) ?? [],
     );
     const rawPayload: Record<string, unknown> = {};
     if (p.carrierName) rawPayload.carrier_name = p.carrierName;
@@ -142,7 +156,7 @@ export async function ingestCsv(
   for (const p of fresh) {
     const invoiceId = idByNumber.get(p.invoiceNumber);
     if (!invoiceId || p.items.length === 0) continue;
-    const keywordCatId = keywordCatByNumber.get(p.invoiceNumber) ?? null;
+    const itemCats = itemCatsByNumber.get(p.invoiceNumber) ?? [];
     p.items.forEach((it, i) => {
       itemRows.push({
         invoice_id: invoiceId,
@@ -150,14 +164,8 @@ export async function ingestCsv(
         quantity: it.quantity,
         unit_price: dollarsToCents(it.unitPrice),
         amount: dollarsToCents(it.amount),
-        // Per item: its own history → merchant history → keyword.
-        category_id: resolveItemCategory(
-          it.name,
-          p.merchantName,
-          itemHist,
-          merchantHist,
-          keywordCatId,
-        ),
+        // Per item: its own history → keyword on the item name (resolved above).
+        category_id: itemCats[i] ?? null,
         sort_order: i,
         user_id: userId,
       });

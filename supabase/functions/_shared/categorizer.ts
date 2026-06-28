@@ -2,11 +2,19 @@
 // Keep the rule list + ordering identical to the Dart original.
 
 // Ordered (key, keywords). Merchant name is matched first against every group
-// in order, then the item names. Groceries/convenience stores precede dining so
-// a convenience-store purchase is classified by store type, not a food keyword.
+// in order, then the item names. Dining is first because it is the most frequent
+// category and dining merchant names often embed another category's keyword.
+// Transport omits rail keywords (捷運/高鐵/台鐵/客運) so names like "7-11高鐵桃園店"
+// are not misclassified as transport.
 const RULES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ["dining", [
+    "餐", "飲", "食", "早餐", "咖啡", "茶", "飯", "麵", "麵包", "吐司", "蛋糕",
+    "甜", "烘焙", "便當", "火鍋", "燒烤", "串", "炸", "雞", "豬", "牛", "羊",
+    "披薩", "pizza", "漢堡", "壽司", "拉麵", "滷", "鍋", "飲料", "手搖",
+    "奶茶", "星巴克", "麥當勞", "肯德基", "摩斯", "食堂", "小吃", "點心", "烤",
+  ]],
   ["transport", [
-    "加油", "中油", "台塑石化", "停車", "捷運", "高鐵", "台鐵", "客運", "計程車",
+    "加油", "中油", "台塑石化", "停車", "計程車",
     "uber", "公車", "悠遊", "一卡通", "etc", "遠通", "通行費", "租車",
   ]],
   ["health", [
@@ -35,22 +43,17 @@ const RULES: ReadonlyArray<readonly [string, readonly string[]]> = [
     "萊爾富", "ok mart", "頂好", "美廉社", "量販", "家樂福", "大潤發",
     "好市多", "costco", "生鮮",
   ]],
-  ["dining", [
-    "餐", "飲", "食", "早餐", "咖啡", "茶", "飯", "麵", "麵包", "吐司", "蛋糕",
-    "甜", "烘焙", "便當", "火鍋", "燒烤", "串", "炸", "雞", "豬", "牛", "羊",
-    "披薩", "pizza", "漢堡", "壽司", "拉麵", "滷", "鍋", "飲料", "手搖",
-    "奶茶", "星巴克", "麥當勞", "肯德基", "摩斯", "食堂", "小吃", "點心", "烤",
-  ]],
 ];
 
-/// Best-effort category key from a merchant name and/or its item names.
+/// Best-effort category key from a merchant name and/or its item names, or null
+/// when nothing matches (uncategorized — distinct from the selectable 'other').
 export function categorizeKey(
   merchant: string | null | undefined,
   itemNames: ReadonlyArray<string> = [],
-): string {
+): string | null {
   const merchantHay = (merchant ?? "").toLowerCase();
   const itemsHay = itemNames.join(" ").toLowerCase();
-  return firstMatch(merchantHay) ?? firstMatch(itemsHay) ?? "other";
+  return firstMatch(merchantHay) ?? firstMatch(itemsHay);
 }
 
 function firstMatch(hay: string): string | null {

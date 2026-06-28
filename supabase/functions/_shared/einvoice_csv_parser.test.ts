@@ -70,6 +70,6 @@ Deno.test("gas station → transport", () => {
   assertEquals(categorizeKey("台灣中油股份有限公司", ["92無鉛汽油"]), "transport");
 });
 
-Deno.test("no signal → other", () => {
-  assertEquals(categorizeKey("ACME Corp", ["widget"]), "other");
+Deno.test("no signal → null (uncategorized)", () => {
+  assertEquals(categorizeKey("ACME Corp", ["widget"]), null);
 });

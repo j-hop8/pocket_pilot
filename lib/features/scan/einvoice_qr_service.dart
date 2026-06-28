@@ -19,38 +19,51 @@ class EinvoiceQrService {
   Future<bool> alreadyExists(String invoiceNumber) async =>
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;
 
-  /// Best-guess category for the receipt: the user's merchant history, else the
-  /// keyword categorizer, else 'other'. Used to pre-select the review picker.
-  Future<int?> defaultCategoryId(
+  /// Inserts the scanned invoice, resolving the header and each line item's
+  /// category independently (items never inherit the header). Item: its own
+  /// history → keyword on the item name. Header: merchant history → keyword on
+  /// the merchant name → the most common line-item category. [categories]
+  /// resolves keyword keys to ids. Returns the new invoice id. Caller should
+  /// check [alreadyExists] first to avoid the UNIQUE-violation on a re-scan.
+  Future<String> save(
     ParsedQrInvoice qr, {
     required String? merchantName,
     required List<Category> categories,
   }) async {
+    final totalCents = dollarsToCents(qr.totalDollars);
     final catIdByKey = {for (final c in categories) c.key: c.id};
-    final keywordKey = categorizeKey(
-      merchant: merchantName,
-      itemNames: qr.items.map((i) => i.name),
-    );
-    final keywordCatId = catIdByKey[keywordKey] ?? catIdByKey['other'];
-    final merchantHist = merchantName == null
-        ? const <String, int>{}
-        : await _invoices.recentCategoryByMerchant([merchantName]);
-    return resolveInvoiceCategory(
+
+    // Item and merchant history are independent reads — fetch them concurrently.
+    final itemNames = qr.items.map((i) => i.name).toList();
+    final histories = await Future.wait([
+      itemNames.isEmpty
+          ? Future.value(const <String, int>{})
+          : _invoices.recentCategoryByItemName(itemNames),
+      merchantName == null
+          ? Future.value(const <String, int>{})
+          : _invoices.recentCategoryByMerchant([merchantName]),
+    ]);
+    final itemHist = histories[0];
+    final merchantHist = histories[1];
+
+    // Per item: its own history → keyword on the item name. Resolved first so
+    // the header can fall back to their most common category.
+    final itemCatIds = [
+      for (final it in qr.items)
+        resolveItemCategory(
+          itemName: it.name,
+          itemHistory: itemHist,
+          keywordFallback: catIdByKey[categorizeKey(itemNames: [it.name])],
+        ),
+    ];
+
+    // Header: merchant history → keyword on the merchant name → item mode.
+    final headerCatId = resolveInvoiceCategory(
       merchant: merchantName,
       merchantHistory: merchantHist,
-      keywordFallback: keywordCatId,
+      keywordFallback: catIdByKey[categorizeKey(merchant: merchantName)],
+      itemCategoryIds: itemCatIds,
     );
-  }
-
-  /// Inserts the scanned invoice with the chosen [categoryId] (cascaded to every
-  /// line item). Returns the new invoice id. Caller should check
-  /// [alreadyExists] first to avoid the UNIQUE-violation on a re-scan.
-  Future<String> save(
-    ParsedQrInvoice qr, {
-    required String? merchantName,
-    required int? categoryId,
-  }) async {
-    final totalCents = dollarsToCents(qr.totalDollars);
 
     final invoice = Invoice(
       invoiceNumber: qr.invoiceNumber,
@@ -62,7 +75,7 @@ class EinvoiceQrService {
           ? dollarsToCents(qr.salesAmountDollars)
           : null,
       totalAmount: totalCents,
-      categoryId: categoryId,
+      categoryId: headerCatId,
       source: 'qr_scan',
       rawPayload: {
         'random_code': qr.randomCode,
@@ -80,18 +93,19 @@ class EinvoiceQrService {
                 quantity: qr.items[i].quantity,
                 unitPrice: dollarsToCents(qr.items[i].unitPrice),
                 amount: dollarsToCents(qr.items[i].amount),
-                categoryId: categoryId,
+                categoryId: itemCatIds[i],
                 sortOrder: i,
               ),
           ]
-        // Header-only: one synthetic line equal to the receipt total.
+        // Header-only: one synthetic line equal to the receipt total, taking the
+        // header category.
         : [
             InvoiceItem(
               name: merchantName ?? '消費',
               quantity: 1,
               unitPrice: totalCents,
               amount: totalCents,
-              categoryId: categoryId,
+              categoryId: headerCatId,
             ),
           ];
 

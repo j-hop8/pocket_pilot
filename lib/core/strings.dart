@@ -124,6 +124,26 @@ class AppStrings {
   String categoryCount(int n)    => _zh ? '$n 個類別'  : '$n categories';
   String resultsCount(int n)     => _zh ? '$n 筆'      : '$n result${n == 1 ? '' : 's'}';
 
+  // ── Auto-categorize (AI fallback) ────────────────────────────────────────────
+  String get autoCategorize    => _zh ? '自動分類' : 'Auto-categorize';
+  String get autoCategorizing  => _zh ? '分類中…' : 'Categorizing…';
+  String autoCategorizeBanner(int n) => _zh
+      ? '$n 筆未分類，用 AI 自動分類'
+      : '$n uncategorized — let AI sort them';
+  String autoCategorizeResult(int n) => _zh
+      ? '已分類 $n 筆'
+      : 'Categorized $n entr${n == 1 ? 'y' : 'ies'}';
+  String get autoCategorizeNone =>
+      _zh ? '沒有可以分類的項目' : 'Nothing left to categorize';
+  String autoCategorizeLimit(int limit) => _zh
+      ? '今天的自動分類已達上限（每天 $limit 次），請明天再試。'
+      : 'Daily auto-categorize limit reached ($limit/day). Try again tomorrow.';
+  String get autoCategorizeDemo => _zh
+      ? '示範帳號無法使用自動分類'
+      : 'Auto-categorize is off for demo accounts';
+  String autoCategorizeFailed(Object e) =>
+      _zh ? '自動分類失敗：$e' : 'Auto-categorize failed: $e';
+
   // ── Capture ────────────────────────────────────────────────────────────────
   // Source tabs: 0 = manual entry, 1 = e-invoice QR, 2 = paper receipt.
   String get tabManual   => _zh ? '手動'       : 'Manual';

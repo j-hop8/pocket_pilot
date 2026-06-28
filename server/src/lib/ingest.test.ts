@@ -38,13 +38,16 @@ class Query {
   }
 }
 
-function fakeAdmin(existing: string[]): { admin: SupabaseClient; rec: Recorded } {
+function fakeAdmin(
+  existing: string[],
+  cats: { id: number; key: string }[] = [{ id: 1, key: "other" }],
+): { admin: SupabaseClient; rec: Recorded } {
   const rec: Recorded = { invoices: [], items: [] };
   let seq = 1;
   const admin = {
     from(table: string) {
       if (table === "categories") {
-        return { select: () => new Query([{ id: 1, key: "other" }]) };
+        return { select: () => new Query(cats) };
       }
       if (table === "invoices") {
         return {
@@ -102,4 +105,27 @@ test("no-ops (no inserts) when everything is already imported", async () => {
   expect(result).toMatchObject({ inserted: 0, skipped: 2, items: 0, from: "2026-05-30", to: "2026-05-31" });
   expect(rec.invoices.length).toBe(0);
   expect(rec.items.length).toBe(0);
+});
+
+test("items resolve independently; header falls back to the item-category mode", async () => {
+  const cats = [{ id: 2, key: "dining" }, { id: 3, key: "groceries" }];
+  const { admin, rec } = fakeAdmin([], cats);
+  await ingestCsv(admin, "user-1", CSV);
+
+  const invoices = rec.invoices[0];
+  const items = rec.items[0];
+  const inv = (n: string) => invoices.find((r) => r.invoice_number === n)!;
+  const item = (n: string) => items.find((r) => r.name === n)!;
+
+  // BG13707200: merchant 佐亨 matches no rule, but its item 餐飲費 → dining, so the
+  // header takes the item-category mode.
+  expect(inv("BG13707200").category_id).toBe(2);
+  expect(item("餐飲費").category_id).toBe(2);
+
+  // AG17746093: merchant 全家 → groceries (merchant keyword beats the item mode).
+  expect(inv("AG17746093").category_id).toBe(3);
+  // Items still resolve on their own name: 綠茶 → dining (茶); 乖乖 matches no rule
+  // and stays null — it does NOT inherit the groceries header.
+  expect(item("綠茶").category_id).toBe(2);
+  expect(item("乖乖").category_id).toBeNull();
 });
