@@ -20,7 +20,8 @@ class EinvoiceQrService {
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;
 
   /// Best-guess category for the receipt: the user's merchant history, else the
-  /// keyword categorizer, else 'other'. Used to pre-select the review picker.
+  /// keyword categorizer, else null (uncategorized). Used to pre-select the
+  /// review picker.
   Future<int?> defaultCategoryId(
     ParsedQrInvoice qr, {
     required String? merchantName,
@@ -31,7 +32,7 @@ class EinvoiceQrService {
       merchant: merchantName,
       itemNames: qr.items.map((i) => i.name),
     );
-    final keywordCatId = catIdByKey[keywordKey] ?? catIdByKey['other'];
+    final keywordCatId = keywordKey == null ? null : catIdByKey[keywordKey];
     final merchantHist = merchantName == null
         ? const <String, int>{}
         : await _invoices.recentCategoryByMerchant([merchantName]);

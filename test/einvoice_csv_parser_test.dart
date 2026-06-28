@@ -75,9 +75,9 @@ void main() {
       );
     });
 
-    test('no signal → other', () {
+    test('no signal → null (uncategorized)', () {
       expect(categorizeKey(merchant: 'ACME Corp', itemNames: const ['widget']),
-          'other');
+          isNull);
     });
   });
 }

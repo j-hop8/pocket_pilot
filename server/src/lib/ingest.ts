@@ -56,7 +56,6 @@ export async function ingestCsv(
   if (catErr) throw catErr;
   const catIdByKey = new Map<string, number>();
   for (const c of cats ?? []) catIdByKey.set(c.key as string, c.id as number);
-  const fallback = catIdByKey.get("other") ?? null;
 
   // Learn from the user's own history first: an item or merchant they've
   // categorized before keeps that category (item wins over merchant); the keyword
@@ -95,9 +94,9 @@ export async function ingestCsv(
   // number, which is unique per user).
   const keywordCatByNumber = new Map<string, number | null>();
   const invoiceRows = fresh.map((p) => {
-    const keywordCatId =
-      catIdByKey.get(categorizeKey(p.merchantName, p.items.map((i) => i.name))) ??
-      fallback;
+    // null key (no rule matched) → null id, i.e. uncategorized.
+    const keywordKey = categorizeKey(p.merchantName, p.items.map((i) => i.name));
+    const keywordCatId = keywordKey === null ? null : catIdByKey.get(keywordKey) ?? null;
     keywordCatByNumber.set(p.invoiceNumber, keywordCatId);
     const categoryId = resolveInvoiceCategory(
       p.merchantName,

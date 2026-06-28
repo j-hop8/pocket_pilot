@@ -16,6 +16,7 @@ enum CategoryMatch { invoice, item }
 class HistoryFilter {
   final String? kind; // null = all, else 'expense' | 'income'
   final Set<int> categoryIds; // empty = all categories
+  final bool uncategorized; // also match records with no category (null id)
   final CategoryMatch categoryMatch; // how categoryIds are matched
   final TimePreset timePreset;
   final DateTimeRange? customRange; // set only when timePreset == custom
@@ -23,18 +24,24 @@ class HistoryFilter {
   const HistoryFilter({
     this.kind,
     this.categoryIds = const {},
+    this.uncategorized = false,
     this.categoryMatch = CategoryMatch.invoice,
     this.timePreset = TimePreset.all,
     this.customRange,
   });
 
+  /// Whether any category dimension is narrowing results (a picked category or
+  /// the uncategorized option).
+  bool get hasCategoryFilter => categoryIds.isNotEmpty || uncategorized;
+
   bool get isActive =>
-      kind != null || categoryIds.isNotEmpty || timePreset != TimePreset.all;
+      kind != null || hasCategoryFilter || timePreset != TimePreset.all;
 
   HistoryFilter copyWith({
     String? kind,
     bool clearKind = false,
     Set<int>? categoryIds,
+    bool? uncategorized,
     CategoryMatch? categoryMatch,
     TimePreset? timePreset,
     DateTimeRange? customRange,
@@ -43,6 +50,7 @@ class HistoryFilter {
     return HistoryFilter(
       kind: clearKind ? null : (kind ?? this.kind),
       categoryIds: categoryIds ?? this.categoryIds,
+      uncategorized: uncategorized ?? this.uncategorized,
       categoryMatch: categoryMatch ?? this.categoryMatch,
       timePreset: timePreset ?? this.timePreset,
       customRange: clearCustomRange ? null : (customRange ?? this.customRange),
@@ -63,12 +71,11 @@ class HistoryFilter {
   /// Whether [inv] satisfies every active filter dimension.
   bool matches(Invoice inv, DateTime now) {
     if (kind != null && inv.kind != kind) return false;
-    if (categoryIds.isNotEmpty) {
+    if (hasCategoryFilter) {
       final ok = switch (categoryMatch) {
-        CategoryMatch.invoice =>
-          inv.categoryId != null && categoryIds.contains(inv.categoryId),
-        CategoryMatch.item => inv.items.any(
-            (it) => it.categoryId != null && categoryIds.contains(it.categoryId)),
+        CategoryMatch.invoice => _categoryMatches(inv.categoryId),
+        CategoryMatch.item =>
+          inv.items.any((it) => _categoryMatches(it.categoryId)),
       };
       if (!ok) return false;
     }
@@ -80,6 +87,12 @@ class HistoryFilter {
     }
     return true;
   }
+
+  /// A single category id (null = uncategorized) against the active category
+  /// dimension: a picked category OR the uncategorized option.
+  bool _categoryMatches(int? id) => id == null
+      ? uncategorized
+      : categoryIds.contains(id);
 }
 
 class HistoryFilterNotifier extends Notifier<HistoryFilter> {
@@ -96,6 +109,13 @@ class HistoryFilterNotifier extends Notifier<HistoryFilter> {
   }
 
   void setCategories(Set<int> ids) => state = state.copyWith(categoryIds: ids);
+
+  void toggleUncategorized() =>
+      state = state.copyWith(uncategorized: !state.uncategorized);
+
+  /// Clears the whole category dimension (picked categories + uncategorized).
+  void clearCategories() =>
+      state = state.copyWith(categoryIds: {}, uncategorized: false);
 
   void setCategoryMatch(CategoryMatch m) =>
       state = state.copyWith(categoryMatch: m);

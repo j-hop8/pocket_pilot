@@ -37,7 +37,6 @@ export async function ingestCsv(
   if (catErr) throw catErr;
   const catIdByKey = new Map<string, number>();
   for (const c of cats ?? []) catIdByKey.set(c.key as string, c.id as number);
-  const fallback = catIdByKey.get("other") ?? null;
 
   const numbers = parsed.map((p) => p.invoiceNumber);
   const { data: existingRows, error: dedupErr } = await admin
@@ -60,7 +59,7 @@ export async function ingestCsv(
     if (to === null || p.date > to) to = p.date;
     if (existing.has(p.invoiceNumber)) continue;
 
-    const categoryId = resolveCategory(p, catIdByKey, fallback);
+    const categoryId = resolveCategory(p, catIdByKey);
     const rawPayload: Record<string, unknown> = {};
     if (p.carrierName) rawPayload.carrier_name = p.carrierName;
     if (p.sellerAddress) rawPayload.seller_address = p.sellerAddress;
@@ -113,8 +112,8 @@ export async function ingestCsv(
 function resolveCategory(
   p: ParsedInvoice,
   catIdByKey: Map<string, number>,
-  fallback: number | null,
 ): number | null {
+  // null key (no rule matched) → null id, i.e. uncategorized.
   const key = categorizeKey(p.merchantName, p.items.map((i) => i.name));
-  return catIdByKey.get(key) ?? fallback;
+  return key === null ? null : catIdByKey.get(key) ?? null;
 }

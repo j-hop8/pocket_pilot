@@ -67,6 +67,6 @@ test("gas station → transport", () => {
   expect(categorizeKey("台灣中油股份有限公司", ["92無鉛汽油"])).toEqual("transport");
 });
 
-test("no signal → other", () => {
-  expect(categorizeKey("ACME Corp", ["widget"])).toEqual("other");
+test("no signal → null (uncategorized)", () => {
+  expect(categorizeKey("ACME Corp", ["widget"])).toBeNull();
 });

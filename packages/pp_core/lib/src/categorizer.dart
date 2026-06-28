@@ -2,18 +2,31 @@
 ///
 /// Phase 1 is offline and keyword-driven; the Gemini-powered categorizer is a
 /// later phase. [categorizeKey] returns a category *key* (matching the
-/// `categories.key` column); callers resolve it to an id. Falls back to 'other'.
+/// `categories.key` column); callers resolve it to an id. Returns null when no
+/// rule matches — that signals "uncategorized" (system-only, distinct from the
+/// user-selectable 'other'); callers store a null category id.
 library;
 
 /// Ordered (key, keywords). The merchant name is matched first against every
-/// group in order, then the item names. Groceries/convenience stores are listed
-/// before dining so a convenience-store purchase (which sells food + drinks) is
-/// classified by the store type rather than by an item keyword like 茶/飯.
+/// group in order, then the item names. Dining is listed first because it is the
+/// most frequent category and dining merchant names often embed another
+/// category's keyword (e.g. a place name). Transport intentionally omits rail
+/// keywords (捷運/高鐵/台鐵/客運) because store names like "7-11高鐵桃園店" would
+/// otherwise be misclassified as transport.
 const List<(String, List<String>)> _rules = [
+  (
+    'dining',
+    [
+      '餐', '飲', '食', '早餐', '咖啡', '茶', '飯', '麵', '麵包', '吐司', '蛋糕',
+      '甜', '烘焙', '便當', '火鍋', '燒烤', '串', '炸', '雞', '豬', '牛', '羊',
+      '披薩', 'pizza', '漢堡', '壽司', '拉麵', '滷', '鍋', '飲料', '手搖',
+      '奶茶', '星巴克', '麥當勞', '肯德基', '摩斯', '食堂', '小吃', '點心', '烤',
+    ],
+  ),
   (
     'transport',
     [
-      '加油', '中油', '台塑石化', '停車', '捷運', '高鐵', '台鐵', '客運', '計程車',
+      '加油', '中油', '台塑石化', '停車', '計程車',
       'uber', '公車', '悠遊', '一卡通', 'etc', '遠通', '通行費', '租車',
     ],
   ),
@@ -64,27 +77,17 @@ const List<(String, List<String>)> _rules = [
       '好市多', 'costco', '生鮮',
     ],
   ),
-  (
-    'dining',
-    [
-      '餐', '飲', '食', '早餐', '咖啡', '茶', '飯', '麵', '麵包', '吐司', '蛋糕',
-      '甜', '烘焙', '便當', '火鍋', '燒烤', '串', '炸', '雞', '豬', '牛', '羊',
-      '披薩', 'pizza', '漢堡', '壽司', '拉麵', '滷', '鍋', '飲料', '手搖',
-      '奶茶', '星巴克', '麥當勞', '肯德基', '摩斯', '食堂', '小吃', '點心', '烤',
-    ],
-  ),
 ];
 
-/// Best-effort category key from a merchant name and/or its item names.
-String categorizeKey({String? merchant, Iterable<String> itemNames = const []}) {
+/// Best-effort category key from a merchant name and/or its item names, or null
+/// when nothing matches (uncategorized).
+String? categorizeKey({String? merchant, Iterable<String> itemNames = const []}) {
   final merchantHay = (merchant ?? '').toLowerCase();
   final itemsHay = itemNames.join(' ').toLowerCase();
 
   // Merchant signals win first (a convenience store is groceries even if it
   // sells 茶/飯), then fall back to what the items look like.
-  final byMerchant = _firstMatch(merchantHay);
-  if (byMerchant != null) return byMerchant;
-  return _firstMatch(itemsHay) ?? 'other';
+  return _firstMatch(merchantHay) ?? _firstMatch(itemsHay);
 }
 
 String? _firstMatch(String hay) {

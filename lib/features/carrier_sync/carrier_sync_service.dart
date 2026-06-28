@@ -30,7 +30,6 @@ class CarrierSyncService {
     }
 
     final catIdByKey = {for (final c in categories) c.key: c.id};
-    final fallbackCatId = catIdByKey['other'];
 
     // Learn from the user's own history first: an item or merchant they've
     // categorized before keeps that category (item wins over merchant), and only
@@ -60,7 +59,8 @@ class CarrierSyncService {
         merchant: p.merchantName,
         itemNames: p.items.map((i) => i.name),
       );
-      final keywordCatId = catIdByKey[keywordKey] ?? fallbackCatId;
+      // null key (no rule matched) → null id, i.e. uncategorized.
+      final keywordCatId = keywordKey == null ? null : catIdByKey[keywordKey];
 
       final invoice = Invoice(
         invoiceNumber: p.invoiceNumber,

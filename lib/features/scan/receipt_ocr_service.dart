@@ -24,8 +24,8 @@ class ReceiptOcrService {
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;
 
   /// Best-guess category: the user's merchant history, else the keyword
-  /// categorizer, else 'other' — identical to the QR service so OCR and QR
-  /// receipts from the same store land in the same place.
+  /// categorizer, else null (uncategorized) — identical to the QR service so OCR
+  /// and QR receipts from the same store land in the same place.
   Future<int?> defaultCategoryId(
     ExtractedReceipt receipt, {
     required String? merchantName,
@@ -36,7 +36,7 @@ class ReceiptOcrService {
       merchant: merchantName,
       itemNames: receipt.items.map((i) => i.name),
     );
-    final keywordCatId = catIdByKey[keywordKey] ?? catIdByKey['other'];
+    final keywordCatId = keywordKey == null ? null : catIdByKey[keywordKey];
     final merchantHist = merchantName == null
         ? const <String, int>{}
         : await _invoices.recentCategoryByMerchant([merchantName]);

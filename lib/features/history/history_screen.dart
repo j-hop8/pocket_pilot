@@ -91,9 +91,11 @@ class HistoryScreen extends ConsumerWidget {
     final out = <_ItemEntry>[];
     for (final inv in invoices) {
       for (final item in inv.items) {
-        if (cats.isNotEmpty &&
-            !(item.categoryId != null && cats.contains(item.categoryId))) {
-          continue;
+        if (filter.hasCategoryFilter) {
+          final ok = item.categoryId == null
+              ? filter.uncategorized
+              : cats.contains(item.categoryId);
+          if (!ok) continue;
         }
         out.add((inv: inv, item: item));
       }
@@ -314,9 +316,12 @@ class _FilterBar extends ConsumerWidget {
 
   String _categoryLabel() {
     final ids = filter.categoryIds;
-    if (ids.isEmpty) return s.filterCategoryLabel;
-    if (ids.length == 1) return s.catName(catMap[ids.first]);
-    return s.categoryCount(ids.length);
+    final count = ids.length + (filter.uncategorized ? 1 : 0);
+    if (count == 0) return s.filterCategoryLabel;
+    if (count == 1) {
+      return ids.isEmpty ? s.uncategorized : s.catName(catMap[ids.first]);
+    }
+    return s.categoryCount(count);
   }
 
   String _timeLabel() => switch (filter.timePreset) {
@@ -345,7 +350,7 @@ class _FilterBar extends ConsumerWidget {
           const SizedBox(width: 10),
           _FilterChip(
             label: _categoryLabel(),
-            active: filter.categoryIds.isNotEmpty,
+            active: filter.hasCategoryFilter,
             onTap: () => _showSheet(context, const _CategorySheet()),
           ),
           const SizedBox(width: 10),
@@ -627,9 +632,9 @@ class _CategorySheet extends ConsumerWidget {
               children: [
                 _SheetTitle(s.filterCategoryLabel),
                 const Spacer(),
-                if (filter.categoryIds.isNotEmpty)
+                if (filter.hasCategoryFilter)
                   TextButton(
-                    onPressed: () => notifier.setCategories({}),
+                    onPressed: notifier.clearCategories,
                     child: Text(s.clearFilters),
                   ),
               ],
@@ -652,6 +657,13 @@ class _CategorySheet extends ConsumerWidget {
                       selected: filter.categoryIds.contains(c.id),
                       onTap: () => notifier.toggleCategory(c.id),
                     ),
+                  // Uncategorized (null category) — system-only, but filterable.
+                  _SelectableCategoryChip(
+                    category: null,
+                    label: s.uncategorized,
+                    selected: filter.uncategorized,
+                    onTap: notifier.toggleUncategorized,
+                  ),
                 ],
               ),
             ),
@@ -663,7 +675,7 @@ class _CategorySheet extends ConsumerWidget {
 }
 
 class _SelectableCategoryChip extends StatelessWidget {
-  final Category category;
+  final Category? category;
   final String label;
   final bool selected;
   final VoidCallback onTap;
