@@ -22,18 +22,10 @@ class _FakeService extends EinvoiceQrService {
   Future<bool> alreadyExists(String invoiceNumber) async => existing;
 
   @override
-  Future<int?> defaultCategoryId(
-    ParsedQrInvoice qr, {
-    required String? merchantName,
-    required List<Category> categories,
-  }) async =>
-      7;
-
-  @override
   Future<String> save(
     ParsedQrInvoice qr, {
     required String? merchantName,
-    required int? categoryId,
+    required List<Category> categories,
   }) async {
     if (throwOnSave) throw Exception('boom');
     return 'saved-${qr.invoiceNumber}';

@@ -53,14 +53,34 @@ class CarrierSyncService {
 
       if (existing.contains(p.invoiceNumber)) continue;
 
-      // Keyword categorizer result (current logic) — the fallback for items and
-      // merchants with no history.
-      final keywordKey = categorizeKey(
-        merchant: p.merchantName,
-        itemNames: p.items.map((i) => i.name),
-      );
-      // null key (no rule matched) → null id, i.e. uncategorized.
-      final keywordCatId = keywordKey == null ? null : catIdByKey[keywordKey];
+      // Resolve items first (each from its own history → the keyword rules on
+      // its own name), so the header can fall back to their most common category.
+      int? itemKeywordCatId(String name) {
+        final key = categorizeKey(itemNames: [name]);
+        return key == null ? null : catIdByKey[key];
+      }
+
+      final items = [
+        for (var i = 0; i < p.items.length; i++)
+          InvoiceItem(
+            name: p.items[i].name,
+            quantity: p.items[i].quantity,
+            unitPrice: dollarsToCents(p.items[i].unitPrice),
+            amount: dollarsToCents(p.items[i].amount),
+            // Per item: its own history → keyword on the item name.
+            categoryId: resolveItemCategory(
+              itemName: p.items[i].name,
+              itemHistory: itemHist,
+              keywordFallback: itemKeywordCatId(p.items[i].name),
+            ),
+            sortOrder: i,
+          ),
+      ];
+
+      // Header: merchant history → keyword on the merchant name → item mode.
+      final merchantKey = categorizeKey(merchant: p.merchantName);
+      final merchantKeywordCatId =
+          merchantKey == null ? null : catIdByKey[merchantKey];
 
       final invoice = Invoice(
         invoiceNumber: p.invoiceNumber,
@@ -70,7 +90,8 @@ class CarrierSyncService {
         categoryId: resolveInvoiceCategory(
           merchant: p.merchantName,
           merchantHistory: merchantHist,
-          keywordFallback: keywordCatId,
+          keywordFallback: merchantKeywordCatId,
+          itemCategoryIds: items.map((i) => i.categoryId),
         ),
         source: 'carrier',
         rawPayload: {
@@ -78,24 +99,6 @@ class CarrierSyncService {
           if (p.sellerAddress != null) 'seller_address': p.sellerAddress,
         },
       );
-      final items = [
-        for (var i = 0; i < p.items.length; i++)
-          InvoiceItem(
-            name: p.items[i].name,
-            quantity: p.items[i].quantity,
-            unitPrice: dollarsToCents(p.items[i].unitPrice),
-            amount: dollarsToCents(p.items[i].amount),
-            // Per item: its own history → merchant history → keyword.
-            categoryId: resolveItemCategory(
-              itemName: p.items[i].name,
-              merchant: p.merchantName,
-              itemHistory: itemHist,
-              merchantHistory: merchantHist,
-              keywordFallback: keywordCatId,
-            ),
-            sortOrder: i,
-          ),
-      ];
 
       await _invoices.insert(invoice, items);
       inserted++;

@@ -4,6 +4,7 @@ import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
 import '../features/carrier_sync/carrier_sync_service.dart';
+import '../features/categorize/auto_categorize_service.dart';
 import '../features/scan/einvoice_qr_service.dart';
 import '../features/scan/merchant_lookup_service.dart';
 import '../features/scan/receipt_extraction_service.dart';
@@ -55,6 +56,12 @@ final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
   return ReceiptOcrService(ref.watch(invoiceRepositoryProvider));
 });
 
+/// AI fallback that categorizes the rows history + the keyword rules left
+/// uncategorized (via the categorize Edge Function).
+final autoCategorizeServiceProvider = Provider<AutoCategorizeService>((ref) {
+  return AutoCategorizeService(ref.watch(invoiceRepositoryProvider));
+});
+
 /// All invoices (newest first), with line items joined.
 final invoiceListProvider = FutureProvider<List<Invoice>>((ref) {
   return ref.watch(invoiceRepositoryProvider).list();
@@ -63,6 +70,18 @@ final invoiceListProvider = FutureProvider<List<Invoice>>((ref) {
 final invoiceByIdProvider =
     FutureProvider.family<Invoice, String>((ref, id) {
   return ref.watch(invoiceRepositoryProvider).getById(id);
+});
+
+/// How many invoices still need categorization — a null header, or any line item
+/// with no category. Drives the History auto-categorize banner. Derived from
+/// [invoiceListProvider] so the O(invoices × items) scan runs only when the list
+/// changes, not on every History rebuild (filter taps, view-mode toggles).
+final uncategorizedCountProvider = Provider<int>((ref) {
+  final invoices = ref.watch(invoiceListProvider).asData?.value ?? const [];
+  return invoices
+      .where((i) =>
+          i.categoryId == null || i.items.any((it) => it.categoryId == null))
+      .length;
 });
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) {

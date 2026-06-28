@@ -48,18 +48,10 @@ class _FakeOcr extends ReceiptOcrService {
   Future<bool> alreadyExists(String invoiceNumber) async => existing;
 
   @override
-  Future<int?> defaultCategoryId(
-    ExtractedReceipt receipt, {
-    required String? merchantName,
-    required List<Category> categories,
-  }) async =>
-      7;
-
-  @override
   Future<String> save(
     ExtractedReceipt receipt, {
     required String? merchantName,
-    required int? categoryId,
+    required List<Category> categories,
   }) async {
     if (throwOnSave) throw Exception('save boom');
     return 'saved-ocr';

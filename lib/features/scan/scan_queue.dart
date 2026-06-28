@@ -239,15 +239,10 @@ class ScanQueue extends Notifier<ScanQueueState> {
     final expense = (await ref.read(categoriesProvider.future))
         .where((c) => !c.isIncome)
         .toList();
-    final categoryId = await svc.defaultCategoryId(
-      parsed,
-      merchantName: merchant,
-      categories: expense,
-    );
     final id = await svc.save(
       parsed,
       merchantName: merchant,
-      categoryId: categoryId,
+      categories: expense,
     );
     _update(
       job.id,
@@ -291,15 +286,10 @@ class ScanQueue extends Notifier<ScanQueueState> {
     final pool = receipt.kind == 'income'
         ? categories.where((c) => c.isIncome).toList()
         : categories.where((c) => !c.isIncome).toList();
-    final categoryId = await svc.defaultCategoryId(
-      receipt,
-      merchantName: receipt.merchantName,
-      categories: pool,
-    );
     final id = await svc.save(
       receipt,
       merchantName: receipt.merchantName,
-      categoryId: categoryId,
+      categories: pool,
     );
     _update(
       job.id,
