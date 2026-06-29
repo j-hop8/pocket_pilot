@@ -94,6 +94,35 @@ class AppStrings {
   String categoryDeleteFailed(Object e) =>
       _zh ? '刪除失敗：$e' : 'Delete failed: $e';
 
+  // ── Budget ─────────────────────────────────────────────────────────────────
+  String get budgetSectionLabel => _zh ? '預算'        : 'BUDGET';
+  String get budgetsTitle       => _zh ? '預算'        : 'Budgets';
+  String get overallBudgetLabel => _zh ? '每月總預算'  : 'Overall monthly budget';
+  String get setBudget          => _zh ? '設定預算'    : 'Set budget';
+  String get editBudget         => _zh ? '編輯預算'    : 'Edit budget';
+  String get removeBudget       => _zh ? '移除預算'    : 'Remove budget';
+  String get budgetAmountLabel  => _zh ? '每月預算（NT\$）' : 'Monthly budget (NT\$)';
+  String get notSetLabel        => _zh ? '未設定'      : 'Not set';
+  String get setABudgetCta      => _zh ? '設定每月預算' : 'Set a monthly budget';
+  String get noBudgetsYet       => _zh ? '還沒有預算'  : 'No budgets yet';
+  String get enterValidBudget   => _zh ? '請輸入大於 0 的金額。' : 'Enter an amount greater than 0.';
+  String get removeBudgetTitle  => _zh ? '移除這個預算？' : 'Remove this budget?';
+  String get removeBudgetBody   => _zh
+      ? '這個預算將被刪除，消費仍會保留。'
+      : 'This budget will be deleted. Your spending is unaffected.';
+  String budgetPerMonth(int cents) =>
+      _zh ? 'NT\$${cents ~/ 100} / 月' : 'NT\$${cents ~/ 100} / mo';
+  String spentOfText(int spent, int limit) =>
+      'NT\$${spent ~/ 100} / NT\$${limit ~/ 100}';
+  String remainingText(int cents) =>
+      _zh ? '剩 NT\$${cents ~/ 100}' : 'NT\$${cents ~/ 100} left';
+  String overByText(int cents) =>
+      _zh ? '超支 NT\$${cents ~/ 100}' : 'Over by NT\$${cents ~/ 100}';
+  String budgetSaveFailed(Object e) =>
+      _zh ? '儲存失敗：$e' : 'Save failed: $e';
+  String budgetDeleteFailed(Object e) =>
+      _zh ? '刪除失敗：$e' : 'Delete failed: $e';
+
   // ── History ────────────────────────────────────────────────────────────────
   String get noHistory       => _zh ? '還沒有帳目'     : 'No records yet';
   String get deleteTitle     => _zh ? '刪除這筆帳目？'  : 'Delete this record?';

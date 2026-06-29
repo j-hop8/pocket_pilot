@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/budget_repository.dart';
 import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
@@ -8,6 +9,7 @@ import '../features/scan/einvoice_qr_service.dart';
 import '../features/scan/merchant_lookup_service.dart';
 import '../features/scan/receipt_extraction_service.dart';
 import '../features/scan/receipt_ocr_service.dart';
+import '../models/budget.dart';
 import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
@@ -17,6 +19,9 @@ final invoiceRepositoryProvider =
 
 final categoryRepositoryProvider =
     Provider<CategoryRepository>((ref) => CategoryRepository());
+
+final budgetRepositoryProvider =
+    Provider<BudgetRepository>((ref) => BudgetRepository());
 
 final carrierRepositoryProvider =
     Provider<CarrierRepository>((ref) => CarrierRepository());
@@ -85,6 +90,18 @@ final incomeCategoriesProvider = FutureProvider<List<Category>>((ref) async {
 final categoriesByIdProvider = FutureProvider<Map<int, Category>>((ref) async {
   final list = await ref.watch(categoriesProvider.future);
   return {for (final c in list) c.id: c};
+});
+
+/// All of the user's recurring monthly budgets (overall + per-category).
+final budgetListProvider = FutureProvider<List<Budget>>((ref) {
+  return ref.watch(budgetRepositoryProvider).list();
+});
+
+/// Lookup map categoryId -> Budget. The `null` key holds the overall budget.
+final budgetsByCategoryProvider =
+    FutureProvider<Map<int?, Budget>>((ref) async {
+  final list = await ref.watch(budgetListProvider.future);
+  return {for (final b in list) b.categoryId: b};
 });
 
 /// The selected bottom-nav tab index, published by [ShellScaffold] so tab-aware

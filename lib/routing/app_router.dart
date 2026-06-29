@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/supabase.dart';
 import '../features/auth/login_screen.dart';
+import '../features/budget/budget_management_screen.dart';
 import '../features/carrier_sync/carrier_sync_screen.dart';
 import '../features/categories/category_management_screen.dart';
 import '../features/history/invoice_detail_screen.dart';
@@ -47,6 +48,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/categories',
       builder: (context, state) => const CategoryManagementScreen(),
+    ),
+    GoRoute(
+      path: '/budgets',
+      builder: (context, state) => const BudgetManagementScreen(),
     ),
     GoRoute(
       path: '/invoice/:id',
