@@ -1,13 +1,19 @@
 /// The structured data Gemini reads off a receipt / invoice photo (the
 /// `extract-receipt` Edge Function response). Mirrors the role `ParsedQrInvoice`
 /// plays for the QR path: a source-specific value object the ingest service
-/// turns into an [Invoice]. Money fields are whole NT$ **dollars** (the QR/CSV
-/// convention) — `dollarsToCents` is applied on save.
+/// turns into an [Invoice]. Money fields are in the receipt's own currency major
+/// units (whole NT$ on the domestic path; the printed foreign amount — decimals
+/// kept — in travel mode) — `dollarsToCents` is applied on save.
 class ExtractedReceipt {
   final String? merchantName;
+
+  /// The merchant name translated into the user's app language (travel mode);
+  /// null on the domestic path or when there's no merchant name.
+  final String? merchantNameTranslated;
+
   final DateTime date;
-  final int totalDollars;
-  final int? salesDollars;
+  final num totalDollars;
+  final num? salesDollars;
   final String? sellerTaxId;
 
   /// The e-invoice number if the model could read one off a 電子發票 (two letters
@@ -17,16 +23,23 @@ class ExtractedReceipt {
 
   /// 'expense' (money out) or 'income' (money in).
   final String kind;
+
+  /// ISO 4217 currency printed on the receipt. 'TWD' on the domestic path; the
+  /// detected foreign code (JPY, USD, …) in travel mode.
+  final String currency;
+
   final List<ExtractedItem> items;
 
   const ExtractedReceipt({
     this.merchantName,
+    this.merchantNameTranslated,
     required this.date,
     required this.totalDollars,
     this.salesDollars,
     this.sellerTaxId,
     this.invoiceNumber,
     this.kind = 'expense',
+    this.currency = 'TWD',
     this.items = const [],
   });
 
@@ -34,12 +47,14 @@ class ExtractedReceipt {
     final items = (json['items'] as List<dynamic>?) ?? const [];
     return ExtractedReceipt(
       merchantName: _str(json['merchantName']),
+      merchantNameTranslated: _str(json['merchantNameTranslated']),
       date: _parseDate(json['date']),
-      totalDollars: _int(json['total']) ?? 0,
-      salesDollars: _int(json['salesAmount']),
+      totalDollars: _num(json['total']) ?? 0,
+      salesDollars: _num(json['salesAmount']),
       sellerTaxId: _taxId(json['sellerTaxId']),
       invoiceNumber: _invoiceNumber(json['invoiceNumber']),
       kind: json['kind'] == 'income' ? 'income' : 'expense',
+      currency: _str(json['currency']) ?? 'TWD',
       items: [
         for (final raw in items)
           if (raw is Map<String, dynamic>) ExtractedItem.fromJson(raw),
@@ -48,26 +63,32 @@ class ExtractedReceipt {
   }
 }
 
-/// One line item, amounts in whole dollars.
+/// One line item, amounts in the receipt's currency major units.
 class ExtractedItem {
   final String name;
+
+  /// The item name translated into the user's app language (travel mode), else null.
+  final String? nameTranslated;
+
   final num quantity;
-  final int unitPriceDollars;
-  final int amountDollars;
+  final num unitPriceDollars;
+  final num amountDollars;
 
   const ExtractedItem({
     required this.name,
+    this.nameTranslated,
     this.quantity = 1,
     required this.unitPriceDollars,
     required this.amountDollars,
   });
 
   factory ExtractedItem.fromJson(Map<String, dynamic> json) {
-    final amount = _int(json['amount']) ?? 0;
+    final amount = _num(json['amount']) ?? 0;
     return ExtractedItem(
       name: _str(json['name']) ?? '',
+      nameTranslated: _str(json['nameTranslated']),
       quantity: (json['quantity'] as num?) ?? 1,
-      unitPriceDollars: _int(json['unitPrice']) ?? amount,
+      unitPriceDollars: _num(json['unitPrice']) ?? amount,
       amountDollars: amount,
     );
   }
@@ -79,11 +100,12 @@ String? _str(Object? value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-int? _int(Object? value) {
-  if (value is num) return value.round();
+/// Parses a numeric amount, preserving decimals (foreign currencies like USD/EUR
+/// print cents). Tolerates a thousands-separated string the model sometimes emits.
+num? _num(Object? value) {
+  if (value is num) return value;
   if (value is String) {
-    final n = num.tryParse(value.replaceAll(RegExp(r'[,\s]'), ''));
-    return n?.round();
+    return num.tryParse(value.replaceAll(RegExp(r'[,\s]'), ''));
   }
   return null;
 }

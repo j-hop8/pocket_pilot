@@ -11,6 +11,8 @@ import '../features/categories/category_management_screen.dart';
 import '../features/history/invoice_detail_screen.dart';
 import '../features/manual_entry/manual_entry_screen.dart';
 import '../features/shell/shell_scaffold.dart';
+import '../features/travel/travel_screen.dart';
+import '../features/travel/trip_detail_screen.dart';
 import '../models/invoice.dart';
 
 final appRouter = GoRouter(
@@ -48,6 +50,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/categories',
       builder: (context, state) => const CategoryManagementScreen(),
+    ),
+    GoRoute(
+      path: '/travel',
+      builder: (context, state) => const TravelScreen(),
+    ),
+    GoRoute(
+      path: '/travel/:id',
+      builder: (context, state) =>
+          TripDetailScreen(tripId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/budgets',

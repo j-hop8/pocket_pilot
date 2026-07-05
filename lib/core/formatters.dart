@@ -11,3 +11,20 @@ final _date = DateFormat('yyyy-MM-dd');
 String formatTwd(int cents) => _twd.format(cents / 100);
 
 String formatDate(DateTime d) => _date.format(d);
+
+/// A foreign amount stored as minor units ×100 (the same fixed-point convention
+/// as TWD cents) -> a localized currency string, e.g. (150000, 'JPY') -> "¥1,500",
+/// (1250, 'USD') -> "US$12.50". `simpleCurrency` supplies the right symbol and
+/// decimal-digit count per currency; an unknown code falls back to the code itself.
+String formatForeign(int amountX100, String currencyCode) {
+  try {
+    final fmt = NumberFormat.simpleCurrency(name: currencyCode.toUpperCase());
+    return fmt.format(amountX100 / 100);
+  } catch (_) {
+    return '${currencyCode.toUpperCase()} ${(amountX100 / 100).toStringAsFixed(2)}';
+  }
+}
+
+/// A foreign→TWD rate formatted for display: 2 dp when ≥ 1, else 4 dp.
+String formatRate(double rate) =>
+    rate >= 1 ? rate.toStringAsFixed(2) : rate.toStringAsFixed(4);

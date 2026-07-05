@@ -31,15 +31,28 @@ class ReceiptExtractionService {
   ReceiptExtractionService();
 
   /// Reads [bytes] (a JPEG/PNG receipt photo) into an [ExtractedReceipt].
+  ///
+  /// [targetLang] (the app language) is passed for every scan so the merchant /
+  /// item names are translated into it — the model leaves text already in that
+  /// language unchanged, so foreign receipts translate while domestic ones don't.
+  /// [currencyHint] (a trip's currency) is a soft hint; the printed currency is
+  /// always read regardless.
   Future<ExtractedReceipt> extract(
     Uint8List bytes, {
     String mimeType = 'image/jpeg',
+    String? targetLang,
+    String? currencyHint,
   }) async {
     final FunctionResponse res;
     try {
       res = await supabase.functions.invoke(
         'extract-receipt',
-        body: {'image': base64Encode(bytes), 'mimeType': mimeType},
+        body: {
+          'image': base64Encode(bytes),
+          'mimeType': mimeType,
+          if (targetLang != null) 'targetLang': targetLang,
+          if (currencyHint != null) 'currencyHint': currencyHint,
+        },
       );
     } on FunctionException catch (e) {
       // functions_client throws on any non-2xx; turn the daily-cap 429 into a

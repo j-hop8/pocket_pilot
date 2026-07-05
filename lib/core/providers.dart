@@ -4,16 +4,19 @@ import '../data/budget_repository.dart';
 import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
+import '../data/trip_repository.dart';
 import '../features/carrier_sync/carrier_sync_service.dart';
 import '../features/categorize/auto_categorize_service.dart';
 import '../features/scan/einvoice_qr_service.dart';
 import '../features/scan/merchant_lookup_service.dart';
 import '../features/scan/receipt_extraction_service.dart';
 import '../features/scan/receipt_ocr_service.dart';
+import '../features/travel/exchange_rate_service.dart';
 import '../models/budget.dart';
 import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
+import '../models/trip.dart';
 
 final invoiceRepositoryProvider =
     Provider<InvoiceRepository>((ref) => InvoiceRepository());
@@ -65,6 +68,37 @@ final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
 /// uncategorized (via the categorize Edge Function).
 final autoCategorizeServiceProvider = Provider<AutoCategorizeService>((ref) {
   return AutoCategorizeService(ref.watch(invoiceRepositoryProvider));
+});
+
+/// ── Travel ──────────────────────────────────────────────────────────────────
+
+final tripRepositoryProvider = Provider<TripRepository>((ref) => TripRepository());
+
+/// All of the user's trips (most recent first).
+final tripsProvider = FutureProvider<List<Trip>>((ref) {
+  return ref.watch(tripRepositoryProvider).list();
+});
+
+/// The trip covering today (the "active" trip), or null when not travelling.
+/// When trips overlap, the most recently started one wins (the list is ordered
+/// start_date desc).
+final activeTripProvider = FutureProvider<Trip?>((ref) async {
+  final trips = await ref.watch(tripsProvider.future);
+  final today = DateTime.now();
+  for (final t in trips) {
+    if (t.covers(today)) return t;
+  }
+  return null;
+});
+
+/// Resolves a foreign currency to a TWD rate (via the exchange-rate function).
+final exchangeRateServiceProvider =
+    Provider<ExchangeRateService>((ref) => ExchangeRateService());
+
+/// Today's foreign→TWD rate for [currencyCode] (null when unavailable), for
+/// display on the travel screen.
+final twdRateProvider = FutureProvider.family<double?, String>((ref, currencyCode) {
+  return ref.watch(exchangeRateServiceProvider).rateToTwd(currencyCode);
 });
 
 /// All invoices (newest first), with line items joined.

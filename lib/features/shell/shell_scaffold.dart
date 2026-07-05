@@ -36,6 +36,11 @@ class _ShellScaffoldState extends ConsumerState<ShellScaffold> {
         toolbarHeight: 62,
         title: const _PocketWordmark(),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.luggage_outlined),
+            tooltip: s.travelTitle,
+            onPressed: () => context.push('/travel'),
+          ),
           if (!isDemo)
             IconButton(
               icon: const Icon(Icons.cloud_sync_outlined),

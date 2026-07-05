@@ -213,6 +213,7 @@ class AppStrings {
       ? '拍照或從相簿選擇，AI 會自動讀取收據內容記帳'
       : 'Snap a photo or pick from your library — AI reads it and adds it for you';
   String get scanTakePhoto => _zh ? '拍照' : 'Take photo';
+  String get scanReceipt => _zh ? '掃描收據' : 'Scan receipt';
   String scanLimitReached(int limit) => _zh
       ? '今天的掃描已達上限（每天 $limit 次），請明天再試。'
       : 'Daily scan limit reached ($limit/day). Try again tomorrow.';
@@ -271,6 +272,55 @@ class AppStrings {
   String qtyText(num qty, int? unit, String formattedUnit) => unit == null
       ? (_zh ? '數量 $qty' : 'Qty $qty')
       : (_zh ? '數量 $qty × $formattedUnit' : 'Qty $qty × $formattedUnit');
+
+  // ── Travel ───────────────────────────────────────────────────────────────────
+  String get travelTitle        => _zh ? '旅遊'       : 'Travel';
+  String get travelCardTitle    => _zh ? '旅遊模式'   : 'Travel mode';
+  String get travelCardHint     => _zh
+      ? '設定旅程，旅遊期間掃描的收據會自動換算台幣並翻譯'
+      : 'Set a trip — receipts auto-convert to TWD and translate while you travel';
+  String get newTrip            => _zh ? '新增旅程'   : 'New trip';
+  String get editTrip           => _zh ? '編輯旅程'   : 'Edit trip';
+  String get tripNameLabel      => _zh ? '旅程名稱'   : 'Trip name';
+  String get tripNameHint       => _zh ? '例如：東京' : 'e.g. Tokyo';
+  String get countryLabel       => _zh ? '國家／地區' : 'Country / region';
+  String get chooseCountry      => _zh ? '選擇國家'   : 'Choose a country';
+  String get tripDatesLabel     => _zh ? '旅遊日期'   : 'Travel dates';
+  String get chooseDates        => _zh ? '選擇日期'   : 'Choose dates';
+  String get saveTrip           => _zh ? '儲存旅程'   : 'Save trip';
+  String get deleteTrip         => _zh ? '刪除旅程'   : 'Delete trip';
+  String get deleteTripTitle    => _zh ? '刪除這個旅程？' : 'Delete this trip?';
+  String get deleteTripBody     => _zh
+      ? '旅程中的帳目會保留，但不再歸類於此旅程。'
+      : 'Records are kept, but no longer grouped under this trip.';
+  String get noTrips            => _zh ? '還沒有旅程'  : 'No trips yet';
+  String get noTripsHint        => _zh
+      ? '建立旅程後，旅遊期間掃描的收據會自動換算成台幣並翻譯店名與品項。'
+      : 'Create a trip — receipts you scan while travelling are auto-converted to TWD and the merchant + items are translated.';
+  String get activeTripLabel    => _zh ? '目前旅程'   : 'Current trip';
+  String get todaysRate         => _zh ? '今日匯率'   : "Today's rate";
+  String get rateUnavailable    => _zh ? '匯率暫時無法取得' : 'Rate unavailable right now';
+  String get tripSpentLabel     => _zh ? '旅程花費'   : 'Trip spending';
+  String get tripExpensesEmpty  => _zh ? '這趟旅程還沒有帳目' : 'No records for this trip yet';
+  String get enterTripName      => _zh ? '請輸入旅程名稱。' : 'Enter a trip name.';
+  String get selectCountryFirst => _zh ? '請選擇國家。' : 'Choose a country.';
+  String get selectDatesFirst   => _zh ? '請選擇旅遊日期。' : 'Choose your travel dates.';
+  String get originalLabel      => _zh ? '原始金額'   : 'Original';
+  String get currencyLabel      => _zh ? '幣別'       : 'Currency';
+  String tripSaveFailed(Object e) => _zh ? '儲存失敗：$e' : 'Save failed: $e';
+
+  /// "1 JPY ≈ 0.21 TWD" (rate already formatted by the caller).
+  String rateText(String code, String rate) => '1 $code ≈ $rate TWD';
+
+  /// Inclusive date span, e.g. "2026-06-20 → 2026-06-27".
+  String tripDateRange(String start, String end) => '$start → $end';
+
+  String get converterHint      => _zh ? '金額'       : 'Amount';
+  String get tripFieldLabel     => _zh ? '旅程'       : 'Trip';
+  String get notAssignedTrip    => _zh ? '尚未指定'   : 'Not assigned';
+  String get chooseTrip         => _zh ? '選擇旅程'   : 'Choose trip';
+  String get noTripOption       => _zh ? '不屬於旅程' : 'No trip';
+  String get unassignedForeignTitle => _zh ? '待分類的國外收據' : 'Foreign receipts to sort';
 
   // ── Settings ───────────────────────────────────────────────────────────────
   String get settingsTitle  => _zh ? '設定'   : 'Settings';
