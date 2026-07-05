@@ -5,6 +5,7 @@ import '../../data/invoice_repository.dart';
 import '../../models/category.dart';
 import '../../models/invoice.dart';
 import '../../models/invoice_item.dart';
+import '../../models/trip.dart';
 import 'extracted_receipt.dart';
 
 /// Turns one AI-extracted receipt into a stored invoice — the OCR counterpart of
@@ -49,22 +50,45 @@ class ReceiptOcrService {
 
   /// Inserts the extracted receipt with the chosen [categoryId] (cascaded to
   /// every line item). Returns the new invoice id.
+  ///
+  /// A receipt is *foreign* whenever its printed currency is not TWD — regardless
+  /// of whether it's tied to a [trip]. For a foreign receipt the original amount +
+  /// currency are always kept, and when a usable [fxRate] is available it's also
+  /// converted so `total_amount` stores TWD cents (keeping every dashboard/budget
+  /// aggregation correct). With no rate the foreign amount is stored unconverted
+  /// (fx_rate null) — flagged foreign so it stays visible and fixable rather than
+  /// silently counted as TWD. [trip] may be null even for a foreign receipt (its
+  /// trip is "to be decided"); an already-TWD receipt is unchanged.
   Future<String> save(
     ExtractedReceipt receipt, {
     required String? merchantName,
     required int? categoryId,
+    Trip? trip,
+    double? fxRate,
   }) async {
-    final totalCents = dollarsToCents(receipt.totalDollars);
+    final isForeign = receipt.currency.toUpperCase() != 'TWD';
+    final hasRate = fxRate != null && fxRate > 0;
+    final rate = (isForeign && hasRate) ? fxRate : 1.0;
+
+    // Original amount stays in the receipt's own minor units; total_amount is
+    // the TWD-converted value (rate == 1 for TWD / an unconverted foreign row).
+    final originalCents = dollarsToCents(receipt.totalDollars);
+    final totalCents = dollarsToCents(receipt.totalDollars * rate);
 
     final invoice = Invoice(
       invoiceNumber: receipt.invoiceNumber,
       invoiceDate: receipt.date,
       merchantName: merchantName,
+      merchantNameTranslated: receipt.merchantNameTranslated,
       sellerTaxId: receipt.sellerTaxId,
       salesAmount: (receipt.salesDollars != null && receipt.salesDollars! > 0)
-          ? dollarsToCents(receipt.salesDollars!)
+          ? dollarsToCents(receipt.salesDollars! * rate)
           : null,
       totalAmount: totalCents,
+      tripId: trip?.id,
+      originalAmount: isForeign ? originalCents : null,
+      originalCurrency: isForeign ? receipt.currency.toUpperCase() : null,
+      fxRate: (isForeign && hasRate) ? rate : null,
       categoryId: categoryId,
       source: 'ocr',
       kind: receipt.kind,
@@ -75,9 +99,11 @@ class ReceiptOcrService {
             for (var i = 0; i < receipt.items.length; i++)
               InvoiceItem(
                 name: receipt.items[i].name,
+                nameTranslated: receipt.items[i].nameTranslated,
                 quantity: receipt.items[i].quantity,
-                unitPrice: dollarsToCents(receipt.items[i].unitPriceDollars),
-                amount: dollarsToCents(receipt.items[i].amountDollars),
+                unitPrice:
+                    dollarsToCents(receipt.items[i].unitPriceDollars * rate),
+                amount: dollarsToCents(receipt.items[i].amountDollars * rate),
                 categoryId: categoryId,
                 sortOrder: i,
               ),

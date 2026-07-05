@@ -184,6 +184,88 @@ Deno.test("a fatal (non-skippable) error surfaces immediately, no fallthrough", 
   assertEquals(calls.length, 1);
 });
 
+/// Pulls the joined prompt text out of a recorded request body.
+function promptOf(call: Recorded): string {
+  const parts =
+    (call.body.contents as Array<{ parts: Array<{ text?: string }> }>)[0].parts;
+  return parts.map((p) => p.text ?? "").join("");
+}
+
+Deno.test("default (no opts) still reads the printed currency, whole-TWD, no translation", async () => {
+  const { fetchFn, calls } = sequencedFetch([{ body: geminiBody(RECEIPT_JSON) }]);
+  await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
+  const prompt = promptOf(calls[0]);
+  // Currency detection is now unconditional — foreign receipts are recognized even
+  // with no travel opts — while TWD still uses whole numbers.
+  assertMatch(prompt, /whole numbers for New Taiwan Dollars/);
+  assertMatch(prompt, /ISO 4217 code of the currency actually printed/);
+  assertEquals(/translated into/.test(prompt), false);
+});
+
+Deno.test("travel opts switch in foreign-currency + translation rules", async () => {
+  const TRAVEL_JSON = JSON.stringify({
+    merchantName: "セブンイレブン",
+    merchantNameTranslated: "7-Eleven",
+    date: "2026-06-20",
+    total: 1500,
+    kind: "expense",
+    currency: "JPY",
+    items: [
+      { name: "おにぎり", nameTranslated: "Rice ball", quantity: 2, unitPrice: 150, amount: 300 },
+    ],
+  });
+  const { fetchFn, calls } = sequencedFetch([{ body: geminiBody(TRAVEL_JSON) }]);
+
+  const receipt = await extractReceipt(IMG, "image/jpeg", "key", fetchFn, {
+    targetLang: "en",
+    currencyHint: "JPY",
+  });
+
+  // The foreign currency + translations survive normalization.
+  assertEquals(receipt.currency, "JPY");
+  assertEquals(receipt.total, 1500);
+  assertEquals(receipt.merchantNameTranslated, "7-Eleven");
+  assertEquals(receipt.items[0].nameTranslated, "Rice ball");
+
+  // The prompt carried the travel rules + the currency hint.
+  const prompt = promptOf(calls[0]);
+  assertMatch(prompt, /receipt's own printed currency/);
+  assertMatch(prompt, /most likely in JPY/);
+  assertMatch(prompt, /translated into English/);
+});
+
+/// Reads the responseSchema out of a recorded Gemini (non-Gemma) request.
+function schemaOf(call: Recorded): {
+  required: string[];
+  properties: { items: { items: { required: string[] } } };
+} {
+  // deno-lint-ignore no-explicit-any
+  return (call.body.generationConfig as any).responseSchema;
+}
+
+Deno.test("translating marks the translated fields required, per item too", async () => {
+  const { fetchFn, calls } = sequencedFetch([{ body: geminiBody(RECEIPT_JSON) }]);
+  await extractReceipt(IMG, "image/jpeg", "key", fetchFn, { targetLang: "en" });
+
+  const schema = schemaOf(calls[0]);
+  // Forcing these into `required` is what stops the model skipping the per-item
+  // translations (the "items not translated" bug).
+  assert(schema.required.includes("merchantNameTranslated"));
+  assert(schema.properties.items.items.required.includes("nameTranslated"));
+});
+
+Deno.test("without targetLang the translated fields stay optional", async () => {
+  const { fetchFn, calls } = sequencedFetch([{ body: geminiBody(RECEIPT_JSON) }]);
+  await extractReceipt(IMG, "image/jpeg", "key", fetchFn);
+
+  const schema = schemaOf(calls[0]);
+  assertEquals(schema.required.includes("merchantNameTranslated"), false);
+  assertEquals(
+    schema.properties.items.items.required.includes("nameTranslated"),
+    false,
+  );
+});
+
 Deno.test("missing api key / image are guarded before any fetch", async () => {
   let called = false;
   const fetchFn = (_u: string, _i: RequestInit) => {

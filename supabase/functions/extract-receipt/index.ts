@@ -45,10 +45,22 @@ Deno.serve(async (req) => {
 
   let image: string | null = null;
   let mimeType = "image/jpeg";
+  // Travel mode (optional): when the client is in an active trip it sends the
+  // destination currency + the user's app language so the model reads foreign
+  // amounts as-is and translates the merchant / item names. Absent → the normal
+  // domestic (whole-TWD, no translation) extraction runs.
+  let targetLang: "zh" | "en" | undefined;
+  let currencyHint: string | undefined;
   try {
     const body = await req.json();
     if (body && typeof body.image === "string") image = body.image;
     if (body && typeof body.mimeType === "string") mimeType = body.mimeType;
+    if (body && (body.targetLang === "zh" || body.targetLang === "en")) {
+      targetLang = body.targetLang;
+    }
+    if (body && typeof body.currencyHint === "string") {
+      currencyHint = body.currencyHint.toUpperCase();
+    }
   } catch {
     image = null; // malformed body
   }
@@ -115,6 +127,8 @@ Deno.serve(async (req) => {
       image,
       mimeType,
       Deno.env.get("GOOGLE_AI_API_KEY"),
+      undefined, // use the default fetch
+      { targetLang, currencyHint },
     );
   } catch (e) {
     // A failed extraction spends no slot — we never reach the record calls.

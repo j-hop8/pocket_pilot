@@ -10,11 +10,30 @@ class Invoice {
   final String? invoiceNumber;
   final DateTime invoiceDate;
   final String? merchantName;
+
+  /// Merchant name translated into the user's app language (travel receipts), else null.
+  final String? merchantNameTranslated;
+
   final String? sellerTaxId; // 賣方統一編號 (8 digits)
   final String? buyerTaxId; // 買方統一編號 (8 digits), null for B2C
   final int? salesAmount; // cents
-  final int totalAmount; // cents
-  final String currency;
+  final int totalAmount; // cents — always TWD (converted for travel receipts)
+  final String currency; // always 'TWD' for total_amount; see originalCurrency
+
+  // ── Travel / multi-currency (null on the domestic path) ───────────────────
+  /// The trip this receipt belongs to (set when scanned during an active trip).
+  final String? tripId;
+
+  /// The receipt's printed amount in its own currency, in minor units (×100),
+  /// e.g. ¥1,500 → 150000. null when the receipt was already TWD.
+  final int? originalAmount;
+
+  /// ISO 4217 code of [originalAmount] (e.g. 'JPY'); null when TWD.
+  final String? originalCurrency;
+
+  /// The foreign→TWD rate used to convert [originalAmount] into [totalAmount].
+  final double? fxRate;
+
   final int? categoryId;
   final String source; // 'carrier' | 'qr_scan' | 'ocr' | 'manual'
   final String kind; // 'expense' | 'income'
@@ -27,11 +46,16 @@ class Invoice {
     this.invoiceNumber,
     required this.invoiceDate,
     this.merchantName,
+    this.merchantNameTranslated,
     this.sellerTaxId,
     this.buyerTaxId,
     this.salesAmount,
     required this.totalAmount,
     this.currency = 'TWD',
+    this.tripId,
+    this.originalAmount,
+    this.originalCurrency,
+    this.fxRate,
     this.categoryId,
     required this.source,
     this.kind = 'expense',
@@ -39,6 +63,10 @@ class Invoice {
     this.createdAt,
     this.items = const [],
   });
+
+  /// Whether this is a foreign-currency travel receipt (its original amount is
+  /// in something other than TWD).
+  bool get isForeign => originalCurrency != null && originalCurrency != 'TWD';
 
   /// Whether this record is money coming in (income) rather than going out
   /// (expense). Amounts are stored positive regardless; the sign is applied by
@@ -70,11 +98,16 @@ class Invoice {
       invoiceNumber: json['invoice_number'] as String?,
       invoiceDate: DateTime.parse(json['invoice_date'] as String),
       merchantName: json['merchant_name'] as String?,
+      merchantNameTranslated: json['merchant_name_translated'] as String?,
       sellerTaxId: json['seller_tax_id'] as String?,
       buyerTaxId: json['buyer_tax_id'] as String?,
       salesAmount: json['sales_amount'] as int?,
       totalAmount: json['total_amount'] as int,
       currency: (json['currency'] as String?) ?? 'TWD',
+      tripId: json['trip_id'] as String?,
+      originalAmount: json['original_amount'] as int?,
+      originalCurrency: json['original_currency'] as String?,
+      fxRate: (json['fx_rate'] as num?)?.toDouble(),
       categoryId: json['category_id'] as int?,
       source: json['source'] as String,
       kind: json['kind'] as String? ?? 'expense',
@@ -91,11 +124,16 @@ class Invoice {
         'invoice_number': invoiceNumber,
         'invoice_date': _dateOnly.format(invoiceDate),
         'merchant_name': merchantName,
+        'merchant_name_translated': merchantNameTranslated,
         'seller_tax_id': sellerTaxId,
         'buyer_tax_id': buyerTaxId,
         'sales_amount': salesAmount,
         'total_amount': totalAmount,
         'currency': currency,
+        'trip_id': tripId,
+        'original_amount': originalAmount,
+        'original_currency': originalCurrency,
+        'fx_rate': fxRate,
         'category_id': categoryId,
         'source': source,
         'kind': kind,

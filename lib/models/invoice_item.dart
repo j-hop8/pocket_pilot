@@ -3,6 +3,10 @@ class InvoiceItem {
   final String? id;
   final String? invoiceId;
   final String name;
+
+  /// Item name translated into the user's app language (travel receipts), else null.
+  final String? nameTranslated;
+
   final num quantity;
   final int? unitPrice; // cents
   final int amount; // cents
@@ -13,6 +17,7 @@ class InvoiceItem {
     this.id,
     this.invoiceId,
     required this.name,
+    this.nameTranslated,
     this.quantity = 1,
     this.unitPrice,
     required this.amount,
@@ -24,6 +29,7 @@ class InvoiceItem {
         id: json['id'] as String?,
         invoiceId: json['invoice_id'] as String?,
         name: json['name'] as String,
+        nameTranslated: json['name_translated'] as String?,
         quantity: (json['quantity'] as num?) ?? 1,
         unitPrice: json['unit_price'] as int?,
         amount: json['amount'] as int,
@@ -36,6 +42,7 @@ class InvoiceItem {
   Map<String, dynamic> toInsertJson(String invoiceId) => {
         'invoice_id': invoiceId,
         'name': name,
+        'name_translated': nameTranslated,
         'quantity': quantity,
         'unit_price': unitPrice,
         'amount': amount,

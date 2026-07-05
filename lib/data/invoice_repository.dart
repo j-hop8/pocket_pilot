@@ -78,6 +78,15 @@ class InvoiceRepository {
         .update({'merchant_name': name}).eq('id', id);
   }
 
+  /// Re-assigns which trip a receipt belongs to (or clears it → "undecided" when
+  /// [tripId] is null). Only the bucket changes; the foreign amount / currency /
+  /// rate captured at scan time are untouched (FX is on the printed currency, not
+  /// the trip). Kept off [toUpdateJson], which deliberately omits the travel
+  /// columns, so this is the single field that moves.
+  Future<void> updateTrip(String id, String? tripId) async {
+    await supabase.from('invoices').update({'trip_id': tripId}).eq('id', id);
+  }
+
   /// Overrides a single line item's category — for receipts from one store that
   /// mix categories (e.g. groceries + a household item). Leaves the invoice
   /// header and sibling items untouched.
