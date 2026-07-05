@@ -241,48 +241,25 @@ async function downloadDetailCsv(
   dateRange?: SyncRange,
   debugDir?: string,
 ): Promise<string> {
-  // The date field is a @vuepic/vue-datepicker. Narrow the query to the
-  // incremental [from→to] range; if that fails for any reason, fall back to the
-  // portal's pre-filled current-month range (dedupe makes a wider range safe —
-  // it just fetches more).
-  await page.goto(SEARCH_URL, { waitUntil: "networkidle", timeout: 30000 });
-  await page.waitForSelector("#dp-input-searchInvoiceDate", { timeout: 20000 });
+  let outcome = await runSearch(page, log, dateRange, debugDir);
 
-  if (dateRange) {
-    try {
-      await selectDateRange(page, dateRange, log, debugDir);
-    } catch (e) {
-      log(`date-range select failed (${(e as Error).message}); using current-month default`);
-    }
+  // The custom incremental range drives the fragile @vuepic/vue-datepicker path
+  // (arrow-navigate + click days). When that lands in an unrecognized post-search
+  // state — the picker selected the wrong window, or the narrowed query silently
+  // returned nothing the portal renders as a grid or a 查無資料 message — the
+  // portal's proven default current-month search usually renders normally. Retry
+  // once without the range before giving up: dedupe makes the wider window a safe
+  // no-op, and if the default path ALSO breaks the failure still surfaces below.
+  if (!outcome.gridAppeared && !outcome.emptyReason && dateRange) {
+    log(
+      "unrecognized post-search state with custom date range — retrying with portal default range",
+    );
+    outcome = await runSearch(page, log, undefined, debugDir);
   }
 
-  const searched = await page.evaluate(() => {
-    const btn = document.querySelector(
-      'button[title="查詢"], button[aria-label="查詢"]',
-    ) as HTMLButtonElement | null;
-    if (!btn) return false;
-    btn.click();
-    return true;
-  });
-  if (!searched) throw new Error("Search (查詢) button not found on search page");
-
-  // The search resolves to one of three states: the detail grid (has rows), the
-  // portal's 查無資料 empty state, or neither (a real failure). The select-all
-  // checkbox only renders when the grid has rows, so waiting only for it meant a
-  // legitimately empty query (e.g. early in a month before that month's invoices
-  // have posted, or a narrow incremental window with nothing new) hard-timed-out
-  // here and failed the entire sync. Treat "empty" as a no-op instead.
-  const gridAppeared = await page
-    .waitForSelector('#invoiceDetailAll, label[for="invoiceDetailAll"]', {
-      timeout: 30000,
-    })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!gridAppeared) {
-    const empty = await classifyEmptyResult(page);
-    if (empty) {
-      log(`search returned no invoices for this range — treating as no-op (${empty})`);
+  if (!outcome.gridAppeared) {
+    if (outcome.emptyReason) {
+      log(`search returned no invoices for this range — treating as no-op (${outcome.emptyReason})`);
       return "";
     }
     // Genuinely unrecognized state. Capture the DOM (prod: set SCRAPE_DEBUG_DIR;
@@ -332,6 +309,55 @@ async function downloadDetailCsv(
     return "";
   }
   return concatCsvPages(pageCsvs);
+}
+
+/// Load the search page, optionally narrow it to `dateRange`, run the 查詢 search,
+/// and wait for the result to resolve. The search resolves to one of three states:
+/// the populated detail grid (has the #invoiceDetailAll select-all box, which only
+/// renders once there are rows), the portal's 查無資料 empty state, or neither (a
+/// real failure). Returns whether the grid rendered and, when it didn't, a short
+/// reason if the page is a recognized empty result (so a legitimately empty query
+/// is a no-op rather than a hard timeout that fails the whole sync).
+async function runSearch(
+  page: Page,
+  log: (msg: string) => void,
+  dateRange: SyncRange | undefined,
+  debugDir?: string,
+): Promise<{ gridAppeared: boolean; emptyReason: string | null }> {
+  // The date field is a @vuepic/vue-datepicker. Narrow the query to the
+  // incremental [from→to] range; if that fails for any reason, fall back to the
+  // portal's pre-filled current-month range (dedupe makes a wider range safe —
+  // it just fetches more).
+  await page.goto(SEARCH_URL, { waitUntil: "networkidle", timeout: 30000 });
+  await page.waitForSelector("#dp-input-searchInvoiceDate", { timeout: 20000 });
+
+  if (dateRange) {
+    try {
+      await selectDateRange(page, dateRange, log, debugDir);
+    } catch (e) {
+      log(`date-range select failed (${(e as Error).message}); using current-month default`);
+    }
+  }
+
+  const searched = await page.evaluate(() => {
+    const btn = document.querySelector(
+      'button[title="查詢"], button[aria-label="查詢"]',
+    ) as HTMLButtonElement | null;
+    if (!btn) return false;
+    btn.click();
+    return true;
+  });
+  if (!searched) throw new Error("Search (查詢) button not found on search page");
+
+  const gridAppeared = await page
+    .waitForSelector('#invoiceDetailAll, label[for="invoiceDetailAll"]', {
+      timeout: 30000,
+    })
+    .then(() => true)
+    .catch(() => false);
+
+  if (gridAppeared) return { gridAppeared: true, emptyReason: null };
+  return { gridAppeared: false, emptyReason: await classifyEmptyResult(page) };
 }
 
 // ── Date range (vue-datepicker) ──────────────────────────────────────────────
@@ -520,19 +546,24 @@ async function describePage(page: Page): Promise<string> {
     const info = await page.evaluate(() => {
       const q = (sel: string) => !!document.querySelector(sel);
       const text = (document.body?.innerText || "").replace(/\s+/g, " ").trim();
+      const dateEl = document.querySelector(
+        "#dp-input-searchInvoiceDate",
+      ) as HTMLInputElement | null;
       return {
         url: location.href,
         title: document.title,
         hasSearchForm: q("#dp-input-searchInvoiceDate"),
+        dateInput: dateEl ? dateEl.value || "" : "",
         hasGridCheckbox: q('#invoiceDetailAll, label[for="invoiceDetailAll"]'),
         hasTable: q("table thead th, table thead td"),
         hasDownloadBtn: q('button[title="下載CSV檔"]'),
-        snippet: text.slice(0, 240),
+        snippet: text.slice(0, 600),
       };
     });
     return (
       `url=${info.url} title="${info.title}" ` +
-      `searchForm=${info.hasSearchForm} gridCheckbox=${info.hasGridCheckbox} ` +
+      `searchForm=${info.hasSearchForm} dateInput="${info.dateInput}" ` +
+      `gridCheckbox=${info.hasGridCheckbox} ` +
       `table=${info.hasTable} downloadBtn=${info.hasDownloadBtn} ` +
       `text="${info.snippet}"`
     );
