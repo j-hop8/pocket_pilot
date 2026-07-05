@@ -62,6 +62,38 @@ void main() {
     });
   });
 
+  group('HistoryFilter.uncategorized', () {
+    final uncatInv = _inv(kind: 'expense', categoryId: null, date: now);
+    final catInv = _inv(kind: 'expense', categoryId: 1, date: now);
+
+    test('a plain category filter excludes uncategorized records', () {
+      const f = HistoryFilter(categoryIds: {1});
+      expect(f.matches(catInv, now), isTrue);
+      expect(f.matches(uncatInv, now), isFalse);
+    });
+
+    test('uncategorized flag matches null-category records', () {
+      const f = HistoryFilter(uncategorized: true);
+      expect(f.hasCategoryFilter, isTrue);
+      expect(f.matches(uncatInv, now), isTrue);
+      expect(f.matches(catInv, now), isFalse);
+    });
+
+    test('combines with picked categories as OR', () {
+      const f = HistoryFilter(categoryIds: {1}, uncategorized: true);
+      expect(f.matches(uncatInv, now), isTrue);
+      expect(f.matches(catInv, now), isTrue);
+    });
+
+    test('by item mode matches items with no category', () {
+      final inv = _inv(
+          kind: 'expense', categoryId: 1, itemCategoryIds: [1, null], date: now);
+      const byItem =
+          HistoryFilter(uncategorized: true, categoryMatch: CategoryMatch.item);
+      expect(byItem.matches(inv, now), isTrue);
+    });
+  });
+
   group('HistoryFilter.time', () {
     test('thisMonth excludes prior month', () {
       const f = HistoryFilter(timePreset: TimePreset.thisMonth);

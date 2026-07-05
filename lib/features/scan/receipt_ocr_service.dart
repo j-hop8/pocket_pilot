@@ -10,8 +10,9 @@ import 'extracted_receipt.dart';
 
 /// Turns one AI-extracted receipt into a stored invoice — the OCR counterpart of
 /// [EinvoiceQrService]. Categorisation and dedup behave identically to the QR
-/// path (same keyword categorizer + merchant-history resolver), but the saved
-/// row is `source='ocr'` so it stays fully editable (the model can misread).
+/// path (item history + keyword on the item name per line; merchant history,
+/// merchant keyword then the item mode for the header), but the saved row is
+/// `source='ocr'` so it stays fully editable (the model can misread).
 class ReceiptOcrService {
   ReceiptOcrService(this._invoices);
 
@@ -24,32 +25,11 @@ class ReceiptOcrService {
   Future<bool> alreadyExists(String invoiceNumber) async =>
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;
 
-  /// Best-guess category: the user's merchant history, else the keyword
-  /// categorizer, else 'other' — identical to the QR service so OCR and QR
-  /// receipts from the same store land in the same place.
-  Future<int?> defaultCategoryId(
-    ExtractedReceipt receipt, {
-    required String? merchantName,
-    required List<Category> categories,
-  }) async {
-    final catIdByKey = {for (final c in categories) c.key: c.id};
-    final keywordKey = categorizeKey(
-      merchant: merchantName,
-      itemNames: receipt.items.map((i) => i.name),
-    );
-    final keywordCatId = catIdByKey[keywordKey] ?? catIdByKey['other'];
-    final merchantHist = merchantName == null
-        ? const <String, int>{}
-        : await _invoices.recentCategoryByMerchant([merchantName]);
-    return resolveInvoiceCategory(
-      merchant: merchantName,
-      merchantHistory: merchantHist,
-      keywordFallback: keywordCatId,
-    );
-  }
-
-  /// Inserts the extracted receipt with the chosen [categoryId] (cascaded to
-  /// every line item). Returns the new invoice id.
+  /// Inserts the extracted receipt, resolving the header and each line item's
+  /// category independently (items never inherit the header). Item: its own
+  /// history → keyword on the item name. Header: merchant history → keyword on
+  /// the merchant name → the most common line-item category. [categories]
+  /// resolves keyword keys to ids. Returns the new invoice id.
   ///
   /// A receipt is *foreign* whenever its printed currency is not TWD — regardless
   /// of whether it's tied to a [trip]. For a foreign receipt the original amount +
@@ -62,7 +42,7 @@ class ReceiptOcrService {
   Future<String> save(
     ExtractedReceipt receipt, {
     required String? merchantName,
-    required int? categoryId,
+    required List<Category> categories,
     Trip? trip,
     double? fxRate,
   }) async {
@@ -74,6 +54,40 @@ class ReceiptOcrService {
     // the TWD-converted value (rate == 1 for TWD / an unconverted foreign row).
     final originalCents = dollarsToCents(receipt.totalDollars);
     final totalCents = dollarsToCents(receipt.totalDollars * rate);
+
+    final catIdByKey = {for (final c in categories) c.key: c.id};
+
+    // Item and merchant history are independent reads — fetch them concurrently.
+    final itemNames = receipt.items.map((i) => i.name).toList();
+    final histories = await Future.wait([
+      itemNames.isEmpty
+          ? Future.value(const <String, int>{})
+          : _invoices.recentCategoryByItemName(itemNames),
+      merchantName == null
+          ? Future.value(const <String, int>{})
+          : _invoices.recentCategoryByMerchant([merchantName]),
+    ]);
+    final itemHist = histories[0];
+    final merchantHist = histories[1];
+
+    // Per item: its own history → keyword on the item name. Resolved first so
+    // the header can fall back to their most common category.
+    final itemCatIds = [
+      for (final it in receipt.items)
+        resolveItemCategory(
+          itemName: it.name,
+          itemHistory: itemHist,
+          keywordFallback: catIdByKey[categorizeKey(itemNames: [it.name])],
+        ),
+    ];
+
+    // Header: merchant history → keyword on the merchant name → item mode.
+    final headerCatId = resolveInvoiceCategory(
+      merchant: merchantName,
+      merchantHistory: merchantHist,
+      keywordFallback: catIdByKey[categorizeKey(merchant: merchantName)],
+      itemCategoryIds: itemCatIds,
+    );
 
     final invoice = Invoice(
       invoiceNumber: receipt.invoiceNumber,
@@ -89,7 +103,7 @@ class ReceiptOcrService {
       originalAmount: isForeign ? originalCents : null,
       originalCurrency: isForeign ? receipt.currency.toUpperCase() : null,
       fxRate: (isForeign && hasRate) ? rate : null,
-      categoryId: categoryId,
+      categoryId: headerCatId,
       source: 'ocr',
       kind: receipt.kind,
     );
@@ -104,19 +118,19 @@ class ReceiptOcrService {
                 unitPrice:
                     dollarsToCents(receipt.items[i].unitPriceDollars * rate),
                 amount: dollarsToCents(receipt.items[i].amountDollars * rate),
-                categoryId: categoryId,
+                categoryId: itemCatIds[i],
                 sortOrder: i,
               ),
           ]
         // No legible line items: one synthetic line equal to the receipt total,
-        // mirroring the QR service's header-only fallback.
+        // taking the header category — mirroring the QR header-only fallback.
         : [
             InvoiceItem(
               name: merchantName ?? '消費',
               quantity: 1,
               unitPrice: totalCents,
               amount: totalCents,
-              categoryId: categoryId,
+              categoryId: headerCatId,
             ),
           ];
 

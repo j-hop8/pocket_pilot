@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   foldMostRecentCategory,
   type HistoryRow,
+  modeCategory,
   resolveInvoiceCategory,
   resolveItemCategory,
 } from "./category_resolver";
@@ -39,33 +40,55 @@ describe("foldMostRecentCategory", () => {
 
 describe("resolveItemCategory priority", () => {
   const itemHist = new Map([["latte", 10]]);
-  const merchantHist = new Map([["starbucks", 20]]);
 
-  it("item history wins over merchant and keyword", () => {
-    expect(resolveItemCategory("Latte", "Starbucks", itemHist, merchantHist, 30)).toBe(10);
+  it("item history wins over keyword", () => {
+    expect(resolveItemCategory("Latte", itemHist, 30)).toBe(10);
   });
 
-  it("merchant history wins when the item has no history", () => {
-    expect(resolveItemCategory("Croissant", "Starbucks", itemHist, merchantHist, 30)).toBe(20);
+  it("keyword fallback when the item has no history", () => {
+    expect(resolveItemCategory("Croissant", itemHist, 30)).toBe(30);
   });
 
-  it("keyword fallback when neither has history", () => {
-    expect(resolveItemCategory("Croissant", "Unknown", itemHist, merchantHist, 30)).toBe(30);
-  });
-
-  it("returns null when the keyword fallback is null", () => {
-    expect(resolveItemCategory("X", null, new Map(), new Map(), null)).toBeNull();
+  it("returns null when neither history nor keyword matches", () => {
+    expect(resolveItemCategory("X", new Map(), null)).toBeNull();
   });
 });
 
 describe("resolveInvoiceCategory priority", () => {
   const merchantHist = new Map([["starbucks", 20]]);
 
-  it("merchant history wins over keyword", () => {
-    expect(resolveInvoiceCategory("Starbucks", merchantHist, 30)).toBe(20);
+  it("merchant history wins over keyword and item mode", () => {
+    expect(resolveInvoiceCategory("Starbucks", merchantHist, 30, [40, 40])).toBe(20);
   });
 
-  it("keyword fallback when merchant has no history", () => {
-    expect(resolveInvoiceCategory("Unknown", merchantHist, 30)).toBe(30);
+  it("keyword fallback wins over item mode when merchant has no history", () => {
+    expect(resolveInvoiceCategory("Unknown", merchantHist, 30, [40, 40])).toBe(30);
+  });
+
+  it("item mode fallback when neither merchant history nor keyword matches", () => {
+    expect(resolveInvoiceCategory("Unknown", new Map(), null, [40, 50, 40])).toBe(40);
+  });
+
+  it("returns null when nothing matches and items are uncategorized", () => {
+    expect(resolveInvoiceCategory("Unknown", new Map(), null, [null, null])).toBeNull();
+  });
+});
+
+describe("modeCategory", () => {
+  it("returns the most frequent non-null id", () => {
+    expect(modeCategory([1, 2, 2, 3, 2])).toBe(2);
+  });
+
+  it("ignores nulls", () => {
+    expect(modeCategory([null, 5, null, 5, 7])).toBe(5);
+  });
+
+  it("breaks ties by first appearance", () => {
+    expect(modeCategory([8, 9, 9, 8])).toBe(8);
+  });
+
+  it("returns null for empty or all-null input", () => {
+    expect(modeCategory([])).toBeNull();
+    expect(modeCategory([null, null])).toBeNull();
   });
 });

@@ -1,11 +1,12 @@
-// Pure category-resolution helpers — the TS mirror of
-// lib/core/category_resolver.dart. Store and item categories are resolved
-// independently: an item's category comes only from item-level signals (its own
-// history, then the keyword rules on the item name) and never inherits the
-// store/merchant category; the store (invoice header) category comes from the
-// merchant's history, then the keyword rules on the merchant name, and finally
-// the most common category among its line items. History consults the user's own
-// past choices first; the most recent past choice wins.
+// Pure category-resolution helpers — the Deno mirror of
+// lib/core/category_resolver.dart and server/src/lib/category_resolver.ts. Store
+// and item categories are resolved independently: an item's category comes only
+// from item-level signals (its own history, then the keyword rules on the item
+// name) and never inherits the store/merchant category; the store (invoice
+// header) category comes from the merchant's history, then the keyword rules on
+// the merchant name, and finally the most common category among its line items.
+// History consults the user's own past choices first; the most recent past
+// choice wins.
 
 export const norm = (s: string) => s.trim().toLowerCase();
 

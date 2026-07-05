@@ -41,7 +41,11 @@ class InvoiceItem {
   /// after the parent invoice row exists.
   Map<String, dynamic> toInsertJson(String invoiceId) => {
         'invoice_id': invoiceId,
-        'name': name,
+        // Trim on write so the stored value matches the trimmed keys every
+        // name-based lookup uses (history recency + the auto-categorize
+        // write-back filter by `name`); an untrimmed row would silently never
+        // match. See InvoiceRepository._applyCategoryByName.
+        'name': name.trim(),
         'name_translated': nameTranslated,
         'quantity': quantity,
         'unit_price': unitPrice,

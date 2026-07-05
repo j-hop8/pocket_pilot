@@ -35,54 +35,34 @@ void main() {
 
   group('resolveItemCategory priority', () {
     const itemHist = {'latte': 10};
-    const merchantHist = {'starbucks': 20};
 
-    test('item history wins over merchant and keyword', () {
+    test('item history wins over keyword', () {
       expect(
         resolveItemCategory(
           itemName: 'Latte',
-          merchant: 'Starbucks',
           itemHistory: itemHist,
-          merchantHistory: merchantHist,
           keywordFallback: 30,
         ),
         10,
       );
     });
 
-    test('merchant history wins when item has no history', () {
+    test('keyword fallback when the item has no history', () {
       expect(
         resolveItemCategory(
           itemName: 'Croissant',
-          merchant: 'Starbucks',
           itemHistory: itemHist,
-          merchantHistory: merchantHist,
-          keywordFallback: 30,
-        ),
-        20,
-      );
-    });
-
-    test('keyword fallback when neither item nor merchant has history', () {
-      expect(
-        resolveItemCategory(
-          itemName: 'Croissant',
-          merchant: 'Unknown Cafe',
-          itemHistory: itemHist,
-          merchantHistory: merchantHist,
           keywordFallback: 30,
         ),
         30,
       );
     });
 
-    test('falls through to keyword (e.g. other) when fallback is null', () {
+    test('null (uncategorized) when neither history nor keyword matches', () {
       expect(
         resolveItemCategory(
           itemName: 'X',
-          merchant: null,
           itemHistory: const {},
-          merchantHistory: const {},
           keywordFallback: null,
         ),
         isNull,
@@ -91,26 +71,72 @@ void main() {
   });
 
   group('resolveInvoiceCategory priority', () {
-    test('merchant history wins over keyword', () {
+    test('merchant history wins over keyword and item mode', () {
       expect(
         resolveInvoiceCategory(
           merchant: 'Starbucks',
           merchantHistory: const {'starbucks': 20},
           keywordFallback: 30,
+          itemCategoryIds: const [40, 40],
         ),
         20,
       );
     });
 
-    test('keyword fallback when merchant has no history', () {
+    test('keyword fallback wins over item mode when merchant has no history', () {
       expect(
         resolveInvoiceCategory(
           merchant: 'Unknown',
           merchantHistory: const {'starbucks': 20},
           keywordFallback: 30,
+          itemCategoryIds: const [40, 40],
         ),
         30,
       );
+    });
+
+    test('item mode fallback when neither merchant history nor keyword matches', () {
+      expect(
+        resolveInvoiceCategory(
+          merchant: 'Unknown',
+          merchantHistory: const {},
+          keywordFallback: null,
+          itemCategoryIds: const [40, 50, 40],
+        ),
+        40,
+      );
+    });
+
+    test('null when nothing matches and items are all uncategorized', () {
+      expect(
+        resolveInvoiceCategory(
+          merchant: 'Unknown',
+          merchantHistory: const {},
+          keywordFallback: null,
+          itemCategoryIds: const [null, null],
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('modeCategory', () {
+    test('returns the most frequent non-null id', () {
+      expect(modeCategory(const [1, 2, 2, 3, 2]), 2);
+    });
+
+    test('ignores nulls', () {
+      expect(modeCategory(const [null, 5, null, 5, 7]), 5);
+    });
+
+    test('ties are broken by first appearance', () {
+      // 8 and 9 both appear twice; 8 is seen first.
+      expect(modeCategory(const [8, 9, 9, 8]), 8);
+    });
+
+    test('null for empty or all-null input', () {
+      expect(modeCategory(const []), isNull);
+      expect(modeCategory(const [null, null]), isNull);
     });
   });
 }

@@ -14,6 +14,7 @@ import '../../models/invoice.dart';
 import '../../models/invoice_item.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/mascots.dart';
+import '../categorize/auto_categorize_service.dart';
 import 'history_filter.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -57,11 +58,19 @@ class HistoryScreen extends ConsumerWidget {
             : filtered.fold<int>(0, (sum, i) => sum + i.totalAmount);
         final isEmpty = byItem ? entries.isEmpty : filtered.isEmpty;
 
+        // Offer the AI fallback whenever something is still uncategorized — a
+        // header with no category, or an invoice with any uncategorized item.
+        // Derived (and cached) by uncategorizedCountProvider so it isn't
+        // recomputed on every rebuild.
+        final uncategorized = ref.watch(uncategorizedCountProvider);
+
         return Column(
           children: [
             _ViewModeToggle(filter: filter, s: s),
             _FilterBar(filter: filter, catMap: catMap, s: s),
             _SummaryRow(count: count, total: total, s: s),
+            if (uncategorized > 0)
+              _AutoCategorizeBanner(count: uncategorized, s: s),
             Expanded(
               child: isEmpty
                   ? Center(
@@ -91,9 +100,11 @@ class HistoryScreen extends ConsumerWidget {
     final out = <_ItemEntry>[];
     for (final inv in invoices) {
       for (final item in inv.items) {
-        if (cats.isNotEmpty &&
-            !(item.categoryId != null && cats.contains(item.categoryId))) {
-          continue;
+        if (filter.hasCategoryFilter) {
+          final ok = item.categoryId == null
+              ? filter.uncategorized
+              : cats.contains(item.categoryId);
+          if (!ok) continue;
         }
         out.add((inv: inv, item: item));
       }
@@ -314,9 +325,12 @@ class _FilterBar extends ConsumerWidget {
 
   String _categoryLabel() {
     final ids = filter.categoryIds;
-    if (ids.isEmpty) return s.filterCategoryLabel;
-    if (ids.length == 1) return s.catName(catMap[ids.first]);
-    return s.categoryCount(ids.length);
+    final count = ids.length + (filter.uncategorized ? 1 : 0);
+    if (count == 0) return s.filterCategoryLabel;
+    if (count == 1) {
+      return ids.isEmpty ? s.uncategorized : s.catName(catMap[ids.first]);
+    }
+    return s.categoryCount(count);
   }
 
   String _timeLabel() => switch (filter.timePreset) {
@@ -345,7 +359,7 @@ class _FilterBar extends ConsumerWidget {
           const SizedBox(width: 10),
           _FilterChip(
             label: _categoryLabel(),
-            active: filter.categoryIds.isNotEmpty,
+            active: filter.hasCategoryFilter,
             onTap: () => _showSheet(context, const _CategorySheet()),
           ),
           const SizedBox(width: 10),
@@ -375,6 +389,111 @@ class _FilterBar extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => sheet,
+    );
+  }
+}
+
+/// Tappable banner that runs the AI categorize fallback over the user's
+/// uncategorized rows (step 3 of the categorize flow). Self-contained loading
+/// state so it sits inside the stateless list; on completion it shows a snackbar
+/// and refreshes History.
+class _AutoCategorizeBanner extends ConsumerStatefulWidget {
+  final int count;
+  final AppStrings s;
+
+  const _AutoCategorizeBanner({required this.count, required this.s});
+
+  @override
+  ConsumerState<_AutoCategorizeBanner> createState() =>
+      _AutoCategorizeBannerState();
+}
+
+class _AutoCategorizeBannerState extends ConsumerState<_AutoCategorizeBanner> {
+  bool _loading = false;
+
+  Future<void> _run() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final s = widget.s;
+    final messenger = ScaffoldMessenger.of(context);
+
+    String message;
+    try {
+      final categories = await ref.read(categoriesProvider.future);
+      final out = await ref.read(autoCategorizeServiceProvider).run(categories);
+      final total = out.items + out.merchants + out.headers;
+      message =
+          total == 0 ? s.autoCategorizeNone : s.autoCategorizeResult(total);
+      // Only refresh if still mounted — invalidating through a disposed ref
+      // throws, and the run already committed, so it must not read as a failure.
+      if (mounted) ref.invalidate(invoiceListProvider);
+    } on CategorizeLimitReached catch (e) {
+      message = s.autoCategorizeLimit(e.limit);
+    } on CategorizeForbidden {
+      message = s.autoCategorizeDemo;
+    } catch (e) {
+      message = s.autoCategorizeFailed(e);
+    }
+
+    if (mounted) setState(() => _loading = false);
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
+      child: GestureDetector(
+        onTap: _loading ? null : _run,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: PocketColors.persimmon.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: PocketColors.persimmon.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              if (_loading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: PocketColors.persimmon,
+                  ),
+                )
+              else
+                const Icon(Icons.auto_awesome,
+                    size: 16, color: PocketColors.persimmon),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _loading
+                      ? widget.s.autoCategorizing
+                      : widget.s.autoCategorizeBanner(widget.count),
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: PocketColors.ink,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              if (!_loading)
+                Text(
+                  widget.s.autoCategorize,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: PocketColors.persimmon,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -627,9 +746,9 @@ class _CategorySheet extends ConsumerWidget {
               children: [
                 _SheetTitle(s.filterCategoryLabel),
                 const Spacer(),
-                if (filter.categoryIds.isNotEmpty)
+                if (filter.hasCategoryFilter)
                   TextButton(
-                    onPressed: () => notifier.setCategories({}),
+                    onPressed: notifier.clearCategories,
                     child: Text(s.clearFilters),
                   ),
               ],
@@ -652,6 +771,13 @@ class _CategorySheet extends ConsumerWidget {
                       selected: filter.categoryIds.contains(c.id),
                       onTap: () => notifier.toggleCategory(c.id),
                     ),
+                  // Uncategorized (null category) — system-only, but filterable.
+                  _SelectableCategoryChip(
+                    category: null,
+                    label: s.uncategorized,
+                    selected: filter.uncategorized,
+                    onTap: notifier.toggleUncategorized,
+                  ),
                 ],
               ),
             ),
@@ -663,7 +789,7 @@ class _CategorySheet extends ConsumerWidget {
 }
 
 class _SelectableCategoryChip extends StatelessWidget {
-  final Category category;
+  final Category? category;
   final String label;
   final bool selected;
   final VoidCallback onTap;

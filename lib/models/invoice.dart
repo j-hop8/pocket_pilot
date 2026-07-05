@@ -123,7 +123,9 @@ class Invoice {
   Map<String, dynamic> toInsertJson() => {
         'invoice_number': invoiceNumber,
         'invoice_date': _dateOnly.format(invoiceDate),
-        'merchant_name': merchantName,
+        // Trim on write so the stored value matches the trimmed keys the
+        // merchant-history and auto-categorize write-back lookups filter by.
+        'merchant_name': merchantName?.trim(),
         'merchant_name_translated': merchantNameTranslated,
         'seller_tax_id': sellerTaxId,
         'buyer_tax_id': buyerTaxId,
@@ -145,7 +147,7 @@ class Invoice {
   Map<String, dynamic> toUpdateJson() => {
         'invoice_number': invoiceNumber,
         'invoice_date': _dateOnly.format(invoiceDate),
-        'merchant_name': merchantName,
+        'merchant_name': merchantName?.trim(),
         'sales_amount': salesAmount,
         'total_amount': totalAmount,
         'currency': currency,

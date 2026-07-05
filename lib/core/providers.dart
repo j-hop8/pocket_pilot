@@ -1,15 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/budget_repository.dart';
 import '../data/carrier_repository.dart';
 import '../data/category_repository.dart';
 import '../data/invoice_repository.dart';
 import '../data/trip_repository.dart';
 import '../features/carrier_sync/carrier_sync_service.dart';
+import '../features/categorize/auto_categorize_service.dart';
 import '../features/scan/einvoice_qr_service.dart';
 import '../features/scan/merchant_lookup_service.dart';
 import '../features/scan/receipt_extraction_service.dart';
 import '../features/scan/receipt_ocr_service.dart';
 import '../features/travel/exchange_rate_service.dart';
+import '../models/budget.dart';
 import '../models/carrier_config.dart';
 import '../models/category.dart';
 import '../models/invoice.dart';
@@ -20,6 +23,9 @@ final invoiceRepositoryProvider =
 
 final categoryRepositoryProvider =
     Provider<CategoryRepository>((ref) => CategoryRepository());
+
+final budgetRepositoryProvider =
+    Provider<BudgetRepository>((ref) => BudgetRepository());
 
 final carrierRepositoryProvider =
     Provider<CarrierRepository>((ref) => CarrierRepository());
@@ -56,6 +62,12 @@ final receiptExtractionServiceProvider =
 /// Ingests an AI-extracted receipt (categorize → dedup → store as `ocr`).
 final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
   return ReceiptOcrService(ref.watch(invoiceRepositoryProvider));
+});
+
+/// AI fallback that categorizes the rows history + the keyword rules left
+/// uncategorized (via the categorize Edge Function).
+final autoCategorizeServiceProvider = Provider<AutoCategorizeService>((ref) {
+  return AutoCategorizeService(ref.watch(invoiceRepositoryProvider));
 });
 
 /// ── Travel ──────────────────────────────────────────────────────────────────
@@ -99,6 +111,18 @@ final invoiceByIdProvider =
   return ref.watch(invoiceRepositoryProvider).getById(id);
 });
 
+/// How many invoices still need categorization — a null header, or any line item
+/// with no category. Drives the History auto-categorize banner. Derived from
+/// [invoiceListProvider] so the O(invoices × items) scan runs only when the list
+/// changes, not on every History rebuild (filter taps, view-mode toggles).
+final uncategorizedCountProvider = Provider<int>((ref) {
+  final invoices = ref.watch(invoiceListProvider).asData?.value ?? const [];
+  return invoices
+      .where((i) =>
+          i.categoryId == null || i.items.any((it) => it.categoryId == null))
+      .length;
+});
+
 final categoriesProvider = FutureProvider<List<Category>>((ref) {
   return ref.watch(categoryRepositoryProvider).list();
 });
@@ -119,6 +143,18 @@ final incomeCategoriesProvider = FutureProvider<List<Category>>((ref) async {
 final categoriesByIdProvider = FutureProvider<Map<int, Category>>((ref) async {
   final list = await ref.watch(categoriesProvider.future);
   return {for (final c in list) c.id: c};
+});
+
+/// All of the user's recurring monthly budgets (overall + per-category).
+final budgetListProvider = FutureProvider<List<Budget>>((ref) {
+  return ref.watch(budgetRepositoryProvider).list();
+});
+
+/// Lookup map categoryId -> Budget. The `null` key holds the overall budget.
+final budgetsByCategoryProvider =
+    FutureProvider<Map<int?, Budget>>((ref) async {
+  final list = await ref.watch(budgetListProvider.future);
+  return {for (final b in list) b.categoryId: b};
 });
 
 /// The selected bottom-nav tab index, published by [ShellScaffold] so tab-aware
