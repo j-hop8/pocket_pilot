@@ -60,3 +60,6 @@ node_modules/
 # Claude Code — machine-local settings (paths, local permission allowlist)
 # Claude Code local settings (may contain anon key in permission rules)
 .claude/settings.local.json
+
+# Codex worktree checkouts (dual-agent workflow)
+.worktrees/
