@@ -266,18 +266,29 @@ async function downloadDetailCsv(
   });
   if (!searched) throw new Error("Search (查詢) button not found on search page");
 
-  await page
-    .waitForFunction(
-      () =>
-        location.href.includes("/detail") ||
-        !!document.querySelector('label[for="invoiceDetailAll"], #invoiceDetailAll'),
-      undefined,
-      { timeout: 30000, polling: 300 },
-    )
-    .catch(() => {});
-  await page.waitForSelector("#invoiceDetailAll, label[for=\"invoiceDetailAll\"]", {
-    timeout: 20000,
-  });
+  // The search resolves to one of three states: the detail grid (has rows), the
+  // portal's 查無資料 empty state, or neither (a real failure). The select-all
+  // checkbox only renders when the grid has rows, so waiting only for it meant a
+  // legitimately empty query (e.g. early in a month before that month's invoices
+  // have posted, or a narrow incremental window with nothing new) hard-timed-out
+  // here and failed the entire sync. Treat "empty" as a no-op instead.
+  const gridAppeared = await page
+    .waitForSelector('#invoiceDetailAll, label[for="invoiceDetailAll"]', {
+      timeout: 30000,
+    })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!gridAppeared) {
+    if (await isEmptyResult(page)) {
+      log("search returned no invoices for this range — treating as no-op");
+      return "";
+    }
+    if (debugDir) await dumpPage(page, debugDir, "search-no-result");
+    throw new Error(
+      "detail grid never rendered and no empty-result message was found",
+    );
+  }
 
   await maximizePageSize(page);
   await installCsvHooks(page);
@@ -308,7 +319,12 @@ async function downloadDetailCsv(
     if (!(await goNextPage(page))) break;
   }
 
-  if (!pageCsvs.length) throw new Error("No CSV pages were downloaded");
+  if (!pageCsvs.length) {
+    // Grid rendered but held no data rows (countDataRows hit 0 on page 1) — the
+    // other shape of an empty result, so no-op instead of failing the sync.
+    log("detail grid rendered with no data rows — treating as no-op");
+    return "";
+  }
   return concatCsvPages(pageCsvs);
 }
 
@@ -456,6 +472,19 @@ async function maximizePageSize(page: Page): Promise<void> {
       timeout: 20000,
     });
   }
+}
+
+/// True when the portal is showing its empty-result state (查無資料 and common
+/// variants) rather than a populated grid. A zero-row query is a normal no-op,
+/// not an error, so the caller returns an empty CSV — which ingest treats as 0
+/// rows — instead of hard-failing on the absent results grid.
+async function isEmptyResult(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const text = document.body?.innerText || document.body?.textContent || "";
+    return /查\s*無\s*資料|查無符合|尚無.*?資料|無查詢結果|no\s+(?:data|records?|results?)/i.test(
+      text,
+    );
+  });
 }
 
 async function countDataRows(page: Page): Promise<number> {
