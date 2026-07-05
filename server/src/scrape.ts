@@ -280,13 +280,19 @@ async function downloadDetailCsv(
     .catch(() => false);
 
   if (!gridAppeared) {
-    if (await isEmptyResult(page)) {
-      log("search returned no invoices for this range — treating as no-op");
+    const empty = await classifyEmptyResult(page);
+    if (empty) {
+      log(`search returned no invoices for this range — treating as no-op (${empty})`);
       return "";
     }
-    if (debugDir) await dumpPage(page, debugDir, "search-no-result");
+    // Genuinely unrecognized state. Capture the DOM (prod: set SCRAPE_DEBUG_DIR;
+    // spike: debugDir is always set) and surface WHAT the page actually showed —
+    // URL/title/text snippet — so the failure is diagnosable from the logs and the
+    // persisted last_sync_error, instead of the opaque "never rendered".
+    const dumpDir = debugDir ?? process.env.SCRAPE_DEBUG_DIR;
+    if (dumpDir) await dumpPage(page, dumpDir, "search-no-result");
     throw new Error(
-      "detail grid never rendered and no empty-result message was found",
+      `detail grid never rendered and page is not a recognized empty state — ${await describePage(page)}`,
     );
   }
 
@@ -474,17 +480,65 @@ async function maximizePageSize(page: Page): Promise<void> {
   }
 }
 
-/// True when the portal is showing its empty-result state (查無資料 and common
-/// variants) rather than a populated grid. A zero-row query is a normal no-op,
-/// not an error, so the caller returns an empty CSV — which ingest treats as 0
-/// rows — instead of hard-failing on the absent results grid.
-async function isEmptyResult(page: Page): Promise<boolean> {
+/// Classify a post-search page that lacks the populated grid: return a short
+/// reason string when it's a legitimate empty result (a normal no-op — the caller
+/// returns an empty CSV, which ingest treats as 0 rows), or null when the state is
+/// unrecognized (a real failure worth surfacing). Two signals:
+///   1. Text match — the portal's empty-state wording (查無資料 and many variants).
+///   2. Structural — a results grid actually rendered (a table with a header) but
+///      its body has zero real data rows. The populated grid always carries the
+///      #invoiceDetailAll select-all box, so its absence + a headed table with no
+///      rows means the query simply returned nothing. This only exists AFTER a
+///      search runs (the search form itself has no results table), so it can't
+///      mask a search that never executed.
+async function classifyEmptyResult(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const text = document.body?.innerText || document.body?.textContent || "";
-    return /查\s*無\s*資料|查無符合|尚無.*?資料|無查詢結果|no\s+(?:data|records?|results?)/i.test(
-      text,
-    );
+    const emptyText =
+      /查\s*無\s*(?:符合)?\s*資料|查詢不到|查無發票|尚無.*?資料|目前(?:尚)?無.*?資料|沒有.*?(?:資料|發票)|無(?:任何)?.*?發票.*?資料|無查詢結果|無符合(?:條件)?(?:的)?資料|找不到.*?資料|no\s+(?:data|records?|results?|invoices?)/i;
+    if (emptyText.test(text)) return "empty-state message";
+
+    const tables = Array.from(document.querySelectorAll("table"));
+    const hasResultsGrid = tables.some((t) => !!t.querySelector("thead th, thead td"));
+    if (!hasResultsGrid) return null;
+    const dataRows = Array.from(document.querySelectorAll("tbody tr")).filter((r) => {
+      const t = (r.textContent || "").trim();
+      if (!t) return false;
+      if (/查無|無資料|no data|尚無|沒有|找不到/i.test(t)) return false;
+      return !!r.querySelector("td");
+    });
+    return dataRows.length === 0 ? "grid rendered with 0 rows" : null;
   });
+}
+
+/// A one-line snapshot of the current page (URL, title, a trimmed body-text
+/// sample, and presence of the selectors we care about) for failure diagnostics.
+/// This lands in the worker logs and the persisted last_sync_error, so an
+/// unrecognized post-search state is debuggable without a live spike.
+async function describePage(page: Page): Promise<string> {
+  try {
+    const info = await page.evaluate(() => {
+      const q = (sel: string) => !!document.querySelector(sel);
+      const text = (document.body?.innerText || "").replace(/\s+/g, " ").trim();
+      return {
+        url: location.href,
+        title: document.title,
+        hasSearchForm: q("#dp-input-searchInvoiceDate"),
+        hasGridCheckbox: q('#invoiceDetailAll, label[for="invoiceDetailAll"]'),
+        hasTable: q("table thead th, table thead td"),
+        hasDownloadBtn: q('button[title="下載CSV檔"]'),
+        snippet: text.slice(0, 240),
+      };
+    });
+    return (
+      `url=${info.url} title="${info.title}" ` +
+      `searchForm=${info.hasSearchForm} gridCheckbox=${info.hasGridCheckbox} ` +
+      `table=${info.hasTable} downloadBtn=${info.hasDownloadBtn} ` +
+      `text="${info.snippet}"`
+    );
+  } catch (e) {
+    return `(page snapshot failed: ${(e as Error).message})`;
+  }
 }
 
 async function countDataRows(page: Page): Promise<number> {
