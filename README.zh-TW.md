@@ -10,8 +10,8 @@ PocketPilot 把在台灣消費的繁瑣單據，整理成一本清楚又好查�
 
 ## 🚀 線上展示
 
-**[pocketpilot.pages.dev](https://pocketpilot.pages.dev/)** — 部署於 Cloudflare Pages 的
-網頁版。
+**[pocketpilot.pocketpilot.workers.dev](https://pocketpilot.pocketpilot.workers.dev/)** —
+部署於 Cloudflare Workers 的網頁版。
 
 ## ✨ 功能
 
@@ -20,8 +20,13 @@ PocketPilot 把在台灣消費的繁瑣單據，整理成一本清楚又好查�
   能處理多種收據格式與語言，不會被單一版型綁死。
 - **電子發票 QR 掃描** — 掃描台灣電子發票上的 QR Code，並內建 Big5 解碼，正確顯示許多
   在地 POS 系統輸出的品項名稱。
-- **載具同步** — 匯入你的財政部載具消費明細：自動解析發票與品項、自動歸類，並以發票號碼
-  去除重複；搭配常駐後端可排程自動同步。
+- **載具同步** — 匯入你的財政部載具消費明細：自動解析發票與品項，並以發票號碼去除重複；
+  搭配常駐後端可排程自動同步。
+- **智慧自動分類** — 不論交易怎麼進來（拍收據、掃 QR Code、載具匯入）都會自動歸類：先以
+  關鍵字規則快速判斷，規則沒把握的再交給 AI；帳本裡未分類的舊紀錄也能一鍵補分類。
+- **預算管理** — 設定每月自動延續的總預算與各類別預算，並直接在儀表板追蹤進度。
+- **旅遊與外幣** — 把海外消費整理成一趟趟旅程：掃描外文收據會自動翻譯，金額並依當日匯率
+  換算成台幣。
 - **帳本與明細** — 透過篩選瀏覽每一張發票，並深入查看完整品項明細。
 - **手動新增** — 需要時可手動新增或編輯一張發票及其品項。
 - **自訂類別** — 使用內建類別，或自訂專屬的圖示與顏色。
@@ -31,10 +36,6 @@ PocketPilot 把在台灣消費的繁瑣單據，整理成一本清楚又好查�
 
 PocketPilot 接下來的方向：
 
-- [ ] **更聰明的自動分類** — 不只載具匯入，而是在每一種新增方式都做到 AI 輔助的自動歸類。
-- [ ] **預算管理** — 設定每月與各類別預算，並追蹤實際花費。
-- [ ] **海外旅遊消費** — 記錄外幣消費並依匯率換算。（AI 收據辨識本來就能處理其他語言與
-  格式，因此外國收據不成問題。）
 - [ ] **支付方式** — 為每筆交易標註付款方式（現金、信用卡……），並依支付方式分析消費。
 - [ ] **對帳** — 將自己的紀錄與銀行每月對帳單比對，找出遺漏、重複或不一致的交易。
 - [ ] **原生行動 App** — 以同一套 Flutter 程式碼建置 iOS 與 Android 版本（目前 PocketPilot
@@ -46,6 +47,6 @@ PocketPilot 接下來的方向：
 | --- | --- |
 | 應用程式 | Flutter (Dart) |
 | 後端／資料 | Supabase（Postgres、Auth、Edge Functions） |
-| AI 收據辨識 | Gemini，透過 Supabase Edge Function |
+| AI（收據辨識、翻譯、自動分類） | Gemini，透過 Supabase Edge Functions |
 | 載具自動同步 | Node + TypeScript、Playwright |
-| 部署 | Cloudflare Pages（網頁版）、GitHub Actions CI/CD |
+| 部署 | Cloudflare Workers（網頁版）、GitHub Actions CI/CD |

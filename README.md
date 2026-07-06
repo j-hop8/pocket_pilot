@@ -24,8 +24,17 @@ It's built with Flutter and Supabase.
 - **Taiwan e-invoice QR scan** — scan the QR codes on Taiwan e-invoices, including a
   Big5 decoder for the item names many local POS systems emit.
 - **E-invoice carrier sync** — import your MOF carrier (載具) statement: invoices and
-  line items are parsed, auto-categorized, and de-duplicated by invoice number, with an
-  always-on backend for scheduled auto-sync.
+  line items are parsed and de-duplicated by invoice number, with an always-on backend
+  for scheduled auto-sync.
+- **Smart auto-categorization** — transactions are categorized automatically however
+  they arrive (receipt photo, QR scan, carrier import): fast keyword rules first, with
+  an AI fallback for whatever the rules miss, plus one-tap backfill for older
+  uncategorized records.
+- **Budgets** — set recurring monthly budgets, overall and per category, and track
+  progress against them right on the dashboard.
+- **Trips & foreign currency** — group overseas spending into trips: foreign receipts
+  are translated as they're scanned, and amounts are converted to TWD at that day's
+  exchange rate.
 - **History & detail** — browse every invoice with filters, and drill into full
   line-item detail.
 - **Manual entry** — add or edit an invoice and its items by hand when you need to.
@@ -37,12 +46,6 @@ It's built with Flutter and Supabase.
 
 Where PocketPilot is headed next:
 
-- [ ] **Smarter auto-categorization** — automatic, AI-assisted categorization across
-  every way you add a transaction, not just carrier imports.
-- [ ] **Budgets** — set monthly and per-category budgets and track spending against them.
-- [ ] **Overseas-trip expenses** — record foreign-currency spending with exchange-rate
-  conversion. (The AI receipt reader already copes with other languages and formats, so
-  foreign receipts aren't a blocker.)
 - [ ] **Payment methods** — tag how each transaction was paid (cash, card, …) and break
   spending down by method.
 - [ ] **Reconciliation** — match your records against your bank's monthly statement to
@@ -56,6 +59,6 @@ Where PocketPilot is headed next:
 | --- | --- |
 | App | Flutter (Dart) |
 | Backend / data | Supabase (Postgres, Auth, Edge Functions) |
-| AI receipt OCR | Gemini, via a Supabase Edge Function |
+| AI (receipt OCR, translation, categorization) | Gemini, via Supabase Edge Functions |
 | Carrier auto-sync | Node + TypeScript, Playwright |
-| Hosting | Cloudflare Pages (web), GitHub Actions CI/CD |
+| Hosting | Cloudflare Workers (web), GitHub Actions CI/CD |
