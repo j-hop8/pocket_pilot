@@ -4,7 +4,8 @@
 trips/foreign currency) into the Features section of both READMEs and fix stale
 hosting references.
 
-**Files in scope:** README.md, README.zh-TW.md
+**Files in scope:** README.md, README.zh-TW.md,
+.agents/tickets/T-001-readme-roadmap-refresh.md (this ticket)
 
 **Do NOT touch:** app/server code, workflows, any other docs
 
