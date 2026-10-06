@@ -16,6 +16,17 @@ enum ScanJobStatus { pending, processing, done, duplicate, failed }
 /// e-invoice and arrive pre-[parsed].)
 enum ScanJobKind { einvoice, receipt }
 
+/// An e-invoice photo whose QR couldn't be decoded AND whose AI-extraction
+/// fallback failed too. [cause] is the fallback's error (kept for the row
+/// tooltip; an [ExtractionLimitReached] cause gets its own message).
+class EinvoiceUnreadable implements Exception {
+  const EinvoiceUnreadable(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'EinvoiceUnreadable($cause)';
+}
+
 /// A single receipt to ingest in the background. Carries either raw image
 /// [bytes] (photo / gallery / web-capture, processed by the worker) or an
 /// already-[parsed] invoice (live-camera detection, which hands us the QR
@@ -212,22 +223,43 @@ class ScanQueue extends Notifier<ScanQueueState> {
           await _processReceipt(job);
       }
     } catch (e) {
-      // The daily-cap case gets a friendly localized message; anything else
-      // falls back to the raw error (shown in the failed row's tooltip).
-      final error = e is ExtractionLimitReached
-          ? ref.read(stringsProvider).scanLimitReached(e.limit)
-          : '$e';
+      // The daily-cap and unreadable-QR cases get a friendly localized message;
+      // anything else falls back to the raw error (shown in the failed row's
+      // tooltip).
+      final s = ref.read(stringsProvider);
+      final String error;
+      if (e is ExtractionLimitReached) {
+        error = s.scanLimitReached(e.limit);
+      } else if (e is EinvoiceUnreadable) {
+        final cause = e.cause;
+        error = cause is ExtractionLimitReached
+            ? s.scanQrUnreadableLimit(cause.limit)
+            : '${s.scanQrUnreadable}\n($cause)';
+      } else {
+        error = '$e';
+      }
       _update(job.id,
           (j) => j.copyWith(status: ScanJobStatus.failed, error: error));
     }
   }
 
   /// E-invoice QR pipeline: decode (or use the live-camera parse) → dedup →
-  /// resolve merchant + category → save. Failures bubble to [_process].
+  /// resolve merchant + category → save. A photo with no decodable QR falls
+  /// back to the AI receipt pipeline. Failures bubble to [_process].
   Future<void> _processEinvoice(ScanJob job) async {
-    final parsed = job.parsed ?? await decodeInvoiceFromBytes(job.bytes!);
+    final parsed =
+        job.parsed ?? await ref.read(einvoiceDecoderProvider)(job.bytes!);
     if (parsed == null) {
-      _update(job.id, (j) => j.copyWith(status: ScanJobStatus.failed));
+      // No decodable QR — e.g. a dense header QR printed with dithered,
+      // half-density modules that blur to grey in a photo. The invoice number,
+      // date and total are still legible in print, so hand the photo to the AI
+      // receipt reader (same invoice-number dedup, saved as an editable `ocr`
+      // record). Spends one extraction from the daily quota, only on this path.
+      try {
+        await _processReceipt(job);
+      } catch (e) {
+        throw EinvoiceUnreadable(e);
+      }
       return;
     }
     final svc = ref.read(einvoiceQrServiceProvider);
@@ -357,3 +389,11 @@ class ScanQueue extends Notifier<ScanQueueState> {
 
 final scanQueueProvider =
     NotifierProvider<ScanQueue, ScanQueueState>(ScanQueue.new);
+
+/// Decodes an e-invoice photo into a parsed invoice, or null when no readable
+/// QR is found. A provider (defaulting to the platform-aware
+/// [decodeInvoiceFromBytes]) so tests can stub the decoder.
+final einvoiceDecoderProvider =
+    Provider<Future<ParsedQrInvoice?> Function(Uint8List bytes)>(
+  (ref) => decodeInvoiceFromBytes,
+);

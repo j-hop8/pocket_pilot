@@ -153,7 +153,10 @@ class _JobRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = (job.merchantName != null && job.merchantName!.isNotEmpty)
         ? job.merchantName!
-        : (job.invoiceNumber ?? s.scanReading);
+        : (job.invoiceNumber ??
+            (job.status == ScanJobStatus.failed
+                ? s.queueFailed
+                : s.scanReading));
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

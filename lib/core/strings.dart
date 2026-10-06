@@ -217,6 +217,12 @@ class AppStrings {
   String scanLimitReached(int limit) => _zh
       ? '今天的掃描已達上限（每天 $limit 次），請明天再試。'
       : 'Daily scan limit reached ($limit/day). Try again tomorrow.';
+  String get scanQrUnreadable => _zh
+      ? '無法辨識 QR 碼，AI 也讀不出這張發票。請拍近一點、清楚一點再試。'
+      : "Couldn't read the QR code, and AI couldn't read the receipt either. Try a closer, sharper photo.";
+  String scanQrUnreadableLimit(int limit) => _zh
+      ? '無法辨識 QR 碼，且今天的 AI 掃描已達上限（每天 $limit 次）。請明天再試或手動輸入。'
+      : "Couldn't read the QR code, and the daily AI scan limit is reached ($limit/day). Try tomorrow or add it manually.";
 
   // ── Background scan queue (progress overlay) ─────────────────────────────────
   String queueTitle(int n) => _zh
