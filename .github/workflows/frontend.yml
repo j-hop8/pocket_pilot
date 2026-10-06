@@ -3,6 +3,9 @@ name: Frontend (Cloudflare Workers)
 # Builds the Flutter web app and deploys it to Cloudflare Workers (static assets).
 #   - push to main  -> production deploy   (wrangler deploy)
 #   - pull request  -> preview version     (wrangler versions upload; URL on the PR)
+#   - manual run    -> production deploy from main, preview from any other branch
+#     (Actions -> Run workflow, or `gh workflow run frontend.yml --ref main`) —
+#     use this to rebuild after changing a build-time secret like BACKEND_URL.
 # Flutter is built HERE rather than in Cloudflare's git build because Cloudflare's
 # build image has no Flutter buildpack. wrangler then uploads the built build/web
 # (see wrangler.jsonc -> assets.directory). Do NOT also connect this repo to
@@ -33,6 +36,7 @@ on:
       - "analysis_options.yaml"
       - "wrangler.jsonc"
       - ".github/workflows/frontend.yml"
+  workflow_dispatch:
 
 # One deploy per ref; cancel a run that a newer push supersedes.
 concurrency:
@@ -74,13 +78,14 @@ jobs:
         with:
           node-version: 22
 
-      # push to main -> production deploy; PR -> upload a preview version (its URL
-      # is posted back on the PR). wrangler uploads build/web per wrangler.jsonc;
-      # the Worker named `pocketpilot` is created on the first deploy.
+      # main (push or manual run) -> production deploy; PR or any other branch ->
+      # upload a preview version (its URL is posted back on the PR). wrangler
+      # uploads build/web per wrangler.jsonc; the Worker named `pocketpilot` is
+      # created on the first deploy.
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: ${{ github.event_name == 'push' && 'deploy' || 'versions upload' }}
+          command: ${{ github.ref == 'refs/heads/main' && 'deploy' || 'versions upload' }}
