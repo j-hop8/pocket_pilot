@@ -15,7 +15,8 @@ class EinvoiceQrService {
   final InvoiceRepository _invoices;
 
   /// Whether this invoice number is already stored (QR + carrier sync share the
-  /// `invoice_number` UNIQUE constraint, so a scan can't duplicate a sync).
+  /// per-user `(user_id, invoice_number)` UNIQUE index, so a scan can't
+  /// duplicate a sync).
   Future<bool> alreadyExists(String invoiceNumber) async =>
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;
 

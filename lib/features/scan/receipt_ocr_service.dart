@@ -19,8 +19,8 @@ class ReceiptOcrService {
   final InvoiceRepository _invoices;
 
   /// Whether [invoiceNumber] is already stored. Only relevant when the model
-  /// read an e-invoice number off the photo — shares the `invoice_number`
-  /// UNIQUE constraint with the QR + carrier records, so an OCR of an already-
+  /// read an e-invoice number off the photo — shares the per-user
+  /// `invoice_number` UNIQUE index with the QR + carrier records, so an OCR of an already-
   /// synced e-invoice is caught as a duplicate instead of UNIQUE-violating.
   Future<bool> alreadyExists(String invoiceNumber) async =>
       (await _invoices.existingInvoiceNumbers([invoiceNumber])).isNotEmpty;

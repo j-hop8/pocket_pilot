@@ -25,7 +25,7 @@ class InvoiceRepository {
   }
 
   /// Returns the subset of [numbers] that already exist, so carrier sync can
-  /// skip them (invoice_number is UNIQUE — dedup avoids re-importing).
+  /// skip them (invoice_number is UNIQUE per user — dedup avoids re-importing).
   Future<Set<String>> existingInvoiceNumbers(List<String> numbers) async {
     if (numbers.isEmpty) return {};
     final rows = await supabase
